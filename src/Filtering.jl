@@ -283,15 +283,16 @@ end
 
 # Multirate version
 # (tapsLen + upFactor - 1) / upFactor
-function FIRFilter{ Tsignal, Ttaps }( ::Type{Tsignal}, taps::Array{Ttaps, 1}, resamp_ratio::Rational{Integer} )
+function FIRFilter{ Tsignal, Ttaps }( ::Type{Tsignal}, taps::Array{Ttaps, 1}, resamp_ratio::Rational )
     taps_len    = length( taps )
     up_factor   = num( resamp_ratio )
+    down_factor = den( resamp_ratio )
     delay_len   = int(( taps_len + up_factor - 1 ) / up_factor )
     delay_line  = zeros( Tsignal, delay_len )
     state       = Array(Ptr{Uint8}, 1)
     buf_len     = FIRGetStateSize( Ttaps, Tsignal, length( taps ))
     buffer      = zeros( Uint8, buf_len )
-    FIRInit( taps, delay_line, state, buffer )
+    FIRInit( taps, delay_line, state, buffer, resamp_ratio, 0, 0 )
     FIRFilter( taps, delay_line, state, buffer, resamp_ratio )
 end
 
@@ -356,12 +357,12 @@ for ( julia_fun, ippf_prefix1, ippf_prefix2 )  in  [ (   :FIRInit,  "ippsFIR",  
         @eval begin
 
             function $(julia_fun)(  taps::Array{$Ttaps, 1},
-                                    resamp_ratio::Rational,
-                                    up_phase::Integer,
-                                    down_phase::Integer,
                                     delay_line::Array{$Tsignal, 1},
                                     state::Array{Ptr{Uint8},1},
-                                    buffer::Array{Uint8, 1}
+                                    buffer::Array{Uint8, 1},
+                                    resamp_ratio::Rational,
+                                    up_phase::Integer,
+                                    down_phase::Integer
                                  )
                 ntaps       = length( taps )
                 ndelayline  = length( delay_line )
@@ -432,7 +433,7 @@ for ( julia_fun, ippf_prefix )  in  [ (   :filt,  "ippsFIR"  ) ]
         
         ippfmr = string( ippf_prefix, "MR", ippf_suffix )
         @eval begin            
-            function $(julia_fun!)( self::FIRFilter{ $Ttaps, $Tsignal, Rational },
+            function $(julia_fun!)( self::FIRFilter{ $Ttaps, $Tsignal, Rational{Int64} },
                                     buffer::Array{$Tsignal, 1},
                                     signal::Array{$Tsignal, 1} )
                 up_factor   = num( self.resamp_ratio )
@@ -441,7 +442,7 @@ for ( julia_fun, ippf_prefix )  in  [ (   :filt,  "ippsFIR"  ) ]
                 out_len     = length( buffer )
                 sig_len * up_factor == out_len * down_factor || throw()
                 state_ptr   = self.state[1]
-                iterations  = IppInt( sig_len/down_factor )
+                iterations  = int( sig_len/down_factor )
                 @ippscall( $ippfsr,  (  Ptr{$Tsignal},  Ptr{$Tsignal},  IppInt,     Ptr{Uint8}  ),
                                         signal,         buffer,         iterations, state_ptr   )         
                 buffer                                                                                                               
@@ -452,7 +453,8 @@ for ( julia_fun, ippf_prefix )  in  [ (   :filt,  "ippsFIR"  ) ]
                 down_factor = den( self.resamp_ratio )
                 sig_len     = length( signal )
                 sig_len % down_factor == 0 || throw()
-                buffer = sig_len * up_factor / down_factor
+                buf_len = int( sig_len * up_factor / down_factor )
+                buffer  = similar( signal, buf_len ) 
                 $(julia_fun!)( self, buffer, signal )
             end    
         end
