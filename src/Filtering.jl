@@ -15,15 +15,11 @@ export  conv,
         filt,
         FIRInit
 
-FIRFilterTypes =    [   ( :Int16,               :Int16,                 "_16s"       ),
-                        ( :Float32,             :Float32,               "_32f"       ),
+FIRFilterTypes =    [   ( :Float32,             :Float32,               "_32f"       ),
                         ( :(Complex{Float32}),  :(Complex{Float32}),    "_32fc"      ),
                         ( :Float64,             :Float64,               "_64f"       ),
                         ( :(Complex{Float64}),  :(Complex{Float64}),    "_64fc"      ),
-                        ( :Int32,               :Int16,                 "32s_16s"    ),
-                        ( :(Complex{Int32}),    :(Complex{Int16}),      "32sc_16sc"  ),
                         ( :Float32,             :Int16,                 "32f_16s"    ),
-                        ( :(Complex{Float32}),  :(Complex{Int16}),      "32fc_16sc"  ),
                         ( :Float64,             :Int16,                 "64f_16s"    ),
                         ( :Float64,             :Float32,               "64f_32f"    ),
                         ( :Float64,             :Int32,                 "64f_32s"    ),
@@ -81,7 +77,11 @@ for ( julia_fun, ippf_prefix, types ) in    [   (   :conv,      "ippsConv", [   
 end
 
 
-
+################################################################################
+#               ____ ____ ____ ____ ____ _    ____ ___ _ ____ _  _             #
+#               |    |  | |__/ |__/ |___ |    |__|  |  | |  | |\ |             #
+#               |___ |__| |  \ |  \ |___ |___ |  |  |  | |__| | \|             #
+################################################################################                                           
 
 for ( julia_fun, ippf_prefix, types ) in    [   (   :xcorr,      "ippsCrossCorr", [     ( :Float32,             "32f"       ),
                                                                                         ( :Float64,             "64f"       ),
@@ -131,9 +131,6 @@ for ( julia_fun, ippf_prefix, types ) in    [   (   :xcorr,      "ippsCrossCorr"
         end
     end
 end
-
-
-
 
 for ( julia_fun, ippf_prefix )  in  [   (   :autocorr,  "ippsAutoCorr"          ),      
                                         (   :autocorrb, "ippsAutoCorr_NormA"    ),    
@@ -191,14 +188,47 @@ end
 
 
 
+
+
+################################################################################
+#     ____ _ ____    ____ _ _    ___ ____ ____    ____ ___ ____ ___ ____       #
+#     |___ | |__/    |___ | |     |  |___ |__/    [__   |  |__|  |  |___       #
+#     |    | |  \    |    | |___  |  |___ |  \    ___]  |  |  |  |  |___       #
+################################################################################  
+#   Name:         ippsFIRGetStateSize, ippsFIRMRGetStateSize,
+#                 ippsFIRInit, ippsFIRMRInit
+#   Purpose:      ippsFIRGetStateSize - calculates the size of the FIR State
+#                                                                    structure;
+#                 ippsFIRInit - initialize FIR state - set taps and delay line
+#                 using external memory buffer;
+#   Parameters:
+#       pTaps       - pointer to the filter coefficients;
+#       tapsLen     - number of coefficients;
+#       pDlyLine    - pointer to the delay line values, can be NULL;
+#       ppState     - pointer to the FIR state created or NULL;
+#       upFactor    - multi-rate up factor;
+#       upPhase     - multi-rate up phase;
+#       downFactor  - multi-rate down factor;
+#       downPhase   - multi-rate down phase;
+#       pStateSize  - pointer where to store the calculated FIR State structure
+#                                                              size (in bytes);
+#    Return:
+#       status      - status value returned, its value are
+#          ippStsNullPtrErr       - pointer(s) to the data is NULL
+#          ippStsFIRLenErr        - tapsLen <= 0
+#          ippStsFIRMRFactorErr   - factor <= 0
+#          ippStsFIRMRPhaseErr    - phase < 0 || factor <= phase
+#          ippStsNoErr            - otherwise
+
+# IppStatus ippsFIRMRGetStateSize_64fc(int tapsLen, int upFactor, int downFactor, int* pBufferSize);
+
 for ( julia_fun, ippf_prefix1, ippf_prefix2 )  in  [ (   :FIRGetStateSize,  "ippsFIR",  "GetStateSize"  ) ]
-    for ( T1, T2, ippf_suffix ) in FIRFilterTypes
-    
-        ippfsr  = string( ippf_prefix1,         ippf_prefix2, ippf_suffix )
-        ippfmr  = string( ippf_prefix1, "MR",   ippf_prefix2, ippf_suffix )
-        
+    for ( T_taps, T_sig, ippf_suffix ) in FIRFilterTypes
+            
+        # Single rate version
+        ippfsr = string( ippf_prefix1, ippf_prefix2, ippf_suffix )
         @eval begin
-            function $(julia_fun)( ::Type{$T1}, ::Type{$T2}, tapslen::Integer  )
+            function $(julia_fun)( ::Type{$T_taps}, ::Type{$T_sig}, tapslen::Integer  )
                 buffersize = IppInt[0]  # the function will fill this value
                 tapslen > 0 || throw( ) # todo: check this
                 @ippscall( $ippfsr, ( IppInt,     Ptr{IppInt} ),
@@ -208,19 +238,30 @@ for ( julia_fun, ippf_prefix1, ippf_prefix2 )  in  [ (   :FIRGetStateSize,  "ipp
             end
         end
         
-        if ippf_suffix != "_16s"
-            @eval begin
-                function $(julia_fun)( ::Type{$T1}, ::Type{$T2}, tapslen::Integer, upfactor::Integer, downfactor::Integer )
-                    buffersize  = IppInt[0]  # the function will fill this value
-                    tapslen > 0 || throw( ) # todo: check this
-                    @ippscall( $ippfmr, (   IppInt,     IppInt,     IppInt,         Ptr{IppInt} ),
-                                            tapslen,    upfactor,   downfactor,     buffersize  )
-                    return buffersize[1]
-                end                
+        # Multirate version
+        ippfmr = string( ippf_prefix1, "MR", ippf_prefix2, ippf_suffix )
+        @eval begin
+            function $(julia_fun)( ::Type{$T_taps}, ::Type{$T_sig}, tapslen::Integer, up_factor::Integer, down_factor::Integer )
+                buffersize = IppInt[0]  # the function will fill this value
+                tapslen > 0 || throw( ) # todo: check this
+                @ippscall( $ippfmr, ( IppInt,   IppInt,    IppInt,      Ptr{IppInt} ),
+                                      tapslen,  up_factor, down_factor, buffersize    )
+
+                return buffersize[1]
             end
-        end
+            $(julia_fun)( ::Type{$T_taps}, ::Type{$T_sig}, tapslen::Integer, resamp_ratio::Rational ) = $(julia_fun)( $T_taps, $T_sig, tapslen, num(resamp_ratio), den(resamp_ratio) )
+        end        
     end
 end
+
+
+
+################################################################################
+#      ____ _ ____    ____ _ _    ___ ____ ____    ___ _   _ ___  ____         #
+#      |___ | |__/    |___ | |     |  |___ |__/     |   \_/  |__] |___         #
+#      |    | |  \    |    | |___  |  |___ |  \     |    |   |    |___         #
+################################################################################  
+
 
 type FIRFilter{Ttaps, Tsignal, Tresamp}
     taps::Array{Ttaps, 1}
@@ -230,42 +271,39 @@ type FIRFilter{Ttaps, Tsignal, Tresamp}
     resamp_ratio::Tresamp
 end
 
-function FIRFilter{Tsignal, Ttaps, Tresamp}( ::Type{Tsignal}, taps::Array{Ttaps, 1}, resamp_ratio::Tresamp = 1  )
+# Single rate version
+function FIRFilter{Tsignal, Ttaps}( ::Type{Tsignal}, taps::Array{Ttaps, 1} )
     delay_line   = zeros( Tsignal, length( taps ))
     state        = Array(Ptr{Uint8}, 1)
     buf_len      = FIRGetStateSize( Ttaps, Tsignal, length( taps ))
     buffer       = zeros( Uint8, buf_len )
+    FIRInit( taps, delay_line, state, buffer )
+    FIRFilter( taps, delay_line, state, buffer, 1 )
+end
+
+# Multirate version
+# (tapsLen + upFactor - 1) / upFactor
+function FIRFilter{ Tsignal, Ttaps }( ::Type{Tsignal}, taps::Array{Ttaps, 1}, resamp_ratio::Rational{Integer} )
+    taps_len    = length( taps )
+    up_factor   = num( resamp_ratio )
+    delay_len   = int(( taps_len + up_factor - 1 ) / up_factor )
+    delay_line  = zeros( Tsignal, delay_len )
+    state       = Array(Ptr{Uint8}, 1)
+    buf_len     = FIRGetStateSize( Ttaps, Tsignal, length( taps ))
+    buffer      = zeros( Uint8, buf_len )
     FIRInit( taps, delay_line, state, buffer )
     FIRFilter( taps, delay_line, state, buffer, resamp_ratio )
 end
 
 
 
-# function FIRFilter{Ttaps, Tsignal}( ::Type{Tsignal}, taps::Array{Ttaps, 1}, resample_ratio = 1 )
-#     n_taps      = length( taps )
-#     delay_line  = zeros( Tsignal, n_taps )
-#     state       = Array(Ptr{Uint8}, 1)
-#     buffer_size = FIRGetStateSize( Ttaps, Tsignal, n_taps )
-#     buffer      = zeros( Uint8, buffer_size )
-#     flt         = FIRFilter( taps, delay_line, state, buffer )
-#     FIRInit( taps, delay_line, state, buffer )
-#     FIRFilter( taps, delay_line, state, buffer )
-# end
-
-
-
-type FIRFilterMR{Ttaps, Tsignal}
-    taps::Array{Ttaps, 1}
-    delay_line::Array{Tsignal, 1}
-    state::Array{Ptr{Uint8}, 1}
-    buffer::Array{Uint8}
-    interpolation::Integer
-    decimation::Integer
-end
-
-
-
-#  Documentation is horrible, see this link: hTtapsps://software.intel.com/en-us/forums/topic/307712
+################################################################################
+#           ____ _ ____    ____ _ _    ___ ____ ____    _ _  _ _ ___           #
+#           |___ | |__/    |___ | |     |  |___ |__/    | |\ | |  |            #
+#           |    | |  \    |    | |___  |  |___ |  \    | | \| |  |            #
+################################################################################  
+#  Documentation is horrible, see this link:
+#                hTtapsps://software.intel.com/en-us/forums/topic/307712
 #
 #  Name:         ippsFIRGetStateSize, ippsFIRMRGeTsignaltateSize,
 #                ippsFIRInit, ippsFIRMRInit
@@ -291,28 +329,67 @@ end
 #         ippSTsignalFIRMRFactorErr   - factor <= 0
 #         ippSTsignalFIRMRPhaseErr    - phase < 0 || factor <= phase
 #         ippSTsignalNoErr            - otherwise
-
+# 
 for ( julia_fun, ippf_prefix1, ippf_prefix2 )  in  [ (   :FIRInit,  "ippsFIR",  "Init"  ) ]
     for ( Ttaps, Tsignal, ippf_suffix ) in FIRFilterTypes
-    
-        ippfsr  = string( ippf_prefix1,         ippf_prefix2, ippf_suffix )
-        ippfmr  = string( ippf_prefix1, "MR",   ippf_prefix2, ippf_suffix )
-        
+
+        # Single rate version
+        ippfsr  = string( ippf_prefix1, ippf_prefix2, ippf_suffix )        
         @eval begin
-            function $(julia_fun)( taps::Array{$Ttaps, 1}, delay_line::Array{$Tsignal, 1}, state::Array{Ptr{Uint8},1}, buffer::Array{Uint8, 1} )
+            
+            function $(julia_fun)(  taps::Array{$Ttaps, 1},
+                                    delay_line::Array{$Tsignal, 1},
+                                    state::Array{Ptr{Uint8},1},
+                                    buffer::Array{Uint8, 1}
+                                 )
                 ntaps      = length( taps )
                 ndelayline = length( delay_line ) 
                 @ippscall( $ippfsr, (   Ptr{Uint8},     Ptr{$Ttaps},    IppInt,     Ptr{$Tsignal},      Ptr{Uint8}  ),
                                         pointer(state), taps,           ntaps,      delay_line,         buffer      )         
                 nothing                                                                                                               
             end
+
         end
+                    
+        # Multirate version
+        ippfmr  = string( ippf_prefix1, "MR", ippf_prefix2, ippf_suffix )
+        @eval begin
+
+            function $(julia_fun)(  taps::Array{$Ttaps, 1},
+                                    resamp_ratio::Rational,
+                                    up_phase::Integer,
+                                    down_phase::Integer,
+                                    delay_line::Array{$Tsignal, 1},
+                                    state::Array{Ptr{Uint8},1},
+                                    buffer::Array{Uint8, 1}
+                                 )
+                ntaps       = length( taps )
+                ndelayline  = length( delay_line )
+                up_factor   = num( resamp_ratio ) 
+                down_factor = den( resamp_ratio )
+                0 <= up_phase < up_factor && 0 <= down_phase < down_factor || throw()
+                @ippscall( $ippfmr, (   Ptr{Uint8},     Ptr{$Ttaps},    IppInt,     IppInt,     IppInt,     IppInt,         IppInt,         Ptr{$Tsignal},      Ptr{Uint8}  ),
+                                        pointer(state), taps,           ntaps,      up_factor,  up_phase,   down_factor,    down_phase,     delay_line,         buffer      )         
+                nothing                                                                                                               
+            end
+
+        end                    
     end
 end
 
+FIRInit( fir::FIRFilter ) = FIRInit( fir.taps,
+                                     fir.delay_line,
+                                     fir.state,
+                                     fir.buffer
+                                   )
 
-FIRInit( fir::FIRFilter ) = FIRInit( fir.taps, fir.delay_line, fir.state, fir.buffer )
 
+################################################################################
+#      ____ _ ____    ____ _ _    ___ ____ ____    ____ _  _ ____ ____         #
+#      |___ | |__/    |___ | |     |  |___ |__/    |___  \/  |___ |            #
+#      |    | |  \    |    | |___  |  |___ |  \    |___ _/\_ |___ |___         #
+################################################################################
+# 
 #  Names:         ippsFIR
 #  Purpose:       FIR filter. Vector filtering
 #  Parameters:
@@ -330,9 +407,8 @@ FIRInit( fir::FIRFilter ) = FIRInit( fir.taps, fir.delay_line, fir.state, fir.bu
 #  Note: for Multi-Rate filtering
 #          length pSrc = numIters*downFactor
 #          length pDst = numIters*upFactor
-#          for inplace functions max this values
-#
-
+#               for inplace functions max this values
+# 
 for ( julia_fun, ippf_prefix )  in  [ (   :filt,  "ippsFIR"  ) ]
     for ( Ttaps, Tsignal, ippf_suffix ) in FIRFilterTypes
     
@@ -340,16 +416,88 @@ for ( julia_fun, ippf_prefix )  in  [ (   :filt,  "ippsFIR"  ) ]
         julia_fun! = symbol(string(julia_fun, '!'))
         
         @eval begin
-            function $(julia_fun!)( fltr::FIRFilter{$Ttaps, $Tsignal, Int}, buffer::Array{$Tsignal, 1}, signal::Array{$Tsignal, 1} )
+            function $(julia_fun!)( self::FIRFilter{$Ttaps, $Tsignal, Int},
+                                    buffer::Array{$Tsignal, 1},
+                                    signal::Array{$Tsignal, 1}
+                                  )
                 sig_len = length( signal )
                 out_len = length( buffer )
-                state_ptr = fltr.state[1]
+                state_ptr = self.state[1]
                 @ippscall( $ippfsr,  (  Ptr{$Tsignal},  Ptr{$Tsignal},  IppInt,     Ptr{Uint8}  ),
                                         signal,         buffer,         sig_len,    state_ptr   )         
                 buffer                                                                                                               
+            end            
+            $(julia_fun)( self::FIRFilter{$Ttaps, $Tsignal, Int}, signal::Array{$Tsignal, 1} ) = $(julia_fun!)( self, similar( signal ), signal )
+        end
+        
+        ippfmr = string( ippf_prefix, "MR", ippf_suffix )
+        @eval begin            
+            function $(julia_fun!)( self::FIRFilter{ $Ttaps, $Tsignal, Rational },
+                                    buffer::Array{$Tsignal, 1},
+                                    signal::Array{$Tsignal, 1} )
+                up_factor   = num( self.resamp_ratio )
+                down_factor = den( self.resamp_ratio )                
+                sig_len     = length( signal )
+                out_len     = length( buffer )
+                sig_len * up_factor == out_len * down_factor || throw()
+                state_ptr   = self.state[1]
+                iterations  = IppInt( sig_len/down_factor )
+                @ippscall( $ippfsr,  (  Ptr{$Tsignal},  Ptr{$Tsignal},  IppInt,     Ptr{Uint8}  ),
+                                        signal,         buffer,         iterations, state_ptr   )         
+                buffer                                                                                                               
             end
             
-            $(julia_fun)( fltr::FIRFilter{$Ttaps, $Tsignal, Int}, signal::Array{$Tsignal, 1} ) = $(julia_fun!)( fltr, similar( signal ), signal )
+            function $(julia_fun)( self::FIRFilter{$Ttaps, $Tsignal, Rational{Int64}}, signal::Array{$Tsignal, 1} )
+                up_factor   = num( self.resamp_ratio )                
+                down_factor = den( self.resamp_ratio )
+                sig_len     = length( signal )
+                sig_len % down_factor == 0 || throw()
+                buffer = sig_len * up_factor / down_factor
+                $(julia_fun!)( self, buffer, signal )
+            end    
         end
+        
     end
 end
+
+
+#  Names:      ippsFIRGenLowpass_64f, ippsFIRGenHighpass_64f, ippsFIRGenBandpass_64f
+#              ippsFIRGenBandstop_64f
+#
+#  Purpose:    This function computes the lowpass FIR filter coefficients
+#              by windowing of ideal (infinite) filter coefficients segment
+#
+#  Parameters:
+#      rfreq             cut off frequency (0 < rfreq < 0.5)
+#
+#      taps              pointer to the array which specifies
+#                        the filter coefficients;
+#
+#      tapsLen           the number of taps in taps[] array (tapsLen>=5);
+#
+#      winType           the ippWindowType switch variable,
+#                        which specifies the smoothing window type;
+#
+#      doNormal          if doNormal=0 the functions calculates
+#                        non-normalized sequence of filter coefficients,
+#                        in other cases the sequence of coefficients
+#                        will be normalized.
+#  Return:
+#   ippStsNullPtrErr     the null pointer to taps[] array pass to function
+#   ippStsSizeErr        the length of coefficient's array is less than five
+#   ippStsSizeErr        the low or high frequency isn't satisfy
+#                                    the condition 0 < rLowFreq < 0.5
+#   ippStsNoErr          otherwise
+#
+#
+#  IPPAPI(IppStatus, ippsFIRGenLowpass_64f, (Ipp64f rfreq, Ipp64f* taps, int tapsLen,
+#                                              IppWinType winType, IppBool doNormal))
+#  
+#  IPPAPI(IppStatus, ippsFIRGenHighpass_64f, (Ipp64f rfreq, Ipp64f* taps, int tapsLen,
+#                                               IppWinType winType, IppBool doNormal))
+#  
+#  IPPAPI(IppStatus, ippsFIRGenBandpass_64f, (Ipp64f rLowFreq, Ipp64f rHighFreq, Ipp64f* taps,
+#                                       int tapsLen, IppWinType winType, IppBool doNormal))
+#  
+#  IPPAPI(IppStatus, ippsFIRGenBandstop_64f, (Ipp64f rLowFreq, Ipp64f rHighFreq, Ipp64f* taps,
+#                                       int tapsLen, IppWinType winType, IppBool doNormal))
