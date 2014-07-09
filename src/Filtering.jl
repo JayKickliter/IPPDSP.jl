@@ -1,5 +1,5 @@
 module WindowType
-    const bartleTtaps       = 0 
+    const bartleTt       = 0 
     const ippWinBlackman = 1
     const ippWinHamming  = 2
     const ippWinHann     = 3
@@ -15,6 +15,11 @@ export  conv,
         filt,
         FIRInit
 
+
+        
+
+# These are common to most of the ipps FIR Filter functions 
+# I haven't included functions with 
 FIRFilterTypes =    [   ( :Float32,             :Float32,               "_32f"       ),
                         ( :(Complex{Float32}),  :(Complex{Float32}),    "_32fc"      ),
                         ( :Float64,             :Float64,               "_64f"       ),
@@ -77,6 +82,8 @@ for ( julia_fun, ippf_prefix, types ) in    [   (   :conv,      "ippsConv", [   
 end
 
 
+
+
 ################################################################################
 #               ____ ____ ____ ____ ____ _    ____ ___ _ ____ _  _             #
 #               |    |  | |__/ |__/ |___ |    |__|  |  | |  | |\ |             #
@@ -101,7 +108,7 @@ for ( julia_fun, ippf_prefix, types ) in    [   (   :xcorr,      "ippsCrossCorr"
                     ny  = length( y )
                     nx1 = length( x1 )
                     nx2 = length( x2 )
-                    ny > 1 && nx1 > 1 && nx2 > 1 || throw() # TODO: Check constrainTsignal                    
+                    ny > 1 && nx1 > 1 && nx2 > 1 || throw() # TODO: Check constrainTx                    
                     if ny > 3
                         @ippscall( $ippf, ( Ptr{$T},    IppInt,     Ptr{$T},    IppInt,     Ptr{$T},    IppInt, IppInt,  IppInt ),
                                             x1,         nx1,        x2,         nx2,        y,          ny,     lowlag,  scale  )
@@ -118,7 +125,7 @@ for ( julia_fun, ippf_prefix, types ) in    [   (   :xcorr,      "ippsCrossCorr"
                     ny  = length( y )
                     nx1 = length( x1 )
                     nx2 = length( x2 )
-                    ny > 1 && nx1 > 1 && nx2 > 1 || throw() # TODO: Check constrainTsignal                    
+                    ny > 1 && nx1 > 1 && nx2 > 1 || throw() # TODO: Check constrainTx                    
                     if ny > 3
                         @ippscall( $ippf, ( Ptr{$T},    IppInt,     Ptr{$T},    IppInt,     Ptr{$T},    IppInt, IppInt  ),
                                             x1,         nx1,        x2,         nx2,        y,          ny,     lowlag  )
@@ -188,16 +195,14 @@ end
 
 
 
-
-
 ################################################################################
 #     ____ _ ____    ____ _ _    ___ ____ ____    ____ ___ ____ ___ ____       #
 #     |___ | |__/    |___ | |     |  |___ |__/    [__   |  |__|  |  |___       #
 #     |    | |  \    |    | |___  |  |___ |  \    ___]  |  |  |  |  |___       #
 ################################################################################  
-#   Name:         ippsFIRGetStateSize, ippsFIRMRGetStateSize,
+#   Name:         ippsFIRRequiredStateSize, ippsFIRMRRequiredStateSize,
 #                 ippsFIRInit, ippsFIRMRInit
-#   Purpose:      ippsFIRGetStateSize - calculates the size of the FIR State
+#   Purpose:      ippsFIRRequiredStateSize - calculates the size of the FIR State
 #                                                                    structure;
 #                 ippsFIRInit - initialize FIR state - set taps and delay line
 #                 using external memory buffer;
@@ -220,9 +225,9 @@ end
 #          ippStsFIRMRPhaseErr    - phase < 0 || factor <= phase
 #          ippStsNoErr            - otherwise
 
-# IppStatus ippsFIRMRGetStateSize_64fc(int tapsLen, int upFactor, int downFactor, int* pBufferSize);
+# IppStatus ippsFIRMRRequiredStateSize_64fc(int tapsLen, int upFactor, int downFactor, int* pBufferSize);
 
-for ( julia_fun, ippf_prefix1, ippf_prefix2 )  in  [ (   :FIRGetStateSize,  "ippsFIR",  "GetStateSize"  ) ]
+for ( julia_fun, ippf_prefix1, ippf_prefix2 )  in  [ (   :FIRRequiredStateSize,  "ippsFIR",  "GetStateSize"  ) ]
     for ( T_taps, T_sig, ippf_suffix ) in FIRFilterTypes
             
         # Single rate version
@@ -241,11 +246,11 @@ for ( julia_fun, ippf_prefix1, ippf_prefix2 )  in  [ (   :FIRGetStateSize,  "ipp
         # Multirate version
         ippfmr = string( ippf_prefix1, "MR", ippf_prefix2, ippf_suffix )
         @eval begin
-            function $(julia_fun)( ::Type{$T_taps}, ::Type{$T_sig}, tapslen::Integer, up_factor::Integer, down_factor::Integer )
+            function $(julia_fun)( ::Type{$T_taps}, ::Type{$T_sig}, tapslen::Integer, upFactor::Integer, downFactor::Integer )
                 buffersize = IppInt[0]  # the function will fill this value
                 tapslen > 0 || throw( ) # todo: check this
                 @ippscall( $ippfmr, ( IppInt,   IppInt,    IppInt,      Ptr{IppInt} ),
-                                      tapslen,  up_factor, down_factor, buffersize    )
+                                      tapslen,  upFactor,  downFactor,  buffersize    )
 
                 return buffersize[1]
             end
@@ -263,38 +268,60 @@ end
 ################################################################################  
 
 
-type FIRFilter{Ttaps, Tsignal, Tresamp}
-    taps::Array{Ttaps, 1}
-    delay_line::Array{Tsignal, 1}
-    state
-    buffer
-    resamp_ratio::Tresamp
+# IPP assings a pointer to state
+# This points to an invisuble to us struct in buffer
+# Intel's documentation is weak in this area, but we allocate the buffer, they
+# instantsiat a stuct inside that buffer, and use state to point the location of
+# that state
+
+# Both the singe-rate and multirate states are the same, but are in different
+# types to help with dispatching
+
+# single rate state
+type FIRSRState
+    pointer::Vector{Ptr{Uint8}} 
+    buffer::Vector{Uint8} 
 end
 
-# Single rate version
-function FIRFilter{Tsignal, Ttaps}( ::Type{Tsignal}, taps::Array{Ttaps, 1} )
-    delay_line   = zeros( Tsignal, length( taps ))
-    state        = Array(Ptr{Uint8}, 1)
-    buf_len      = FIRGetStateSize( Ttaps, Tsignal, length( taps ))
-    buffer       = zeros( Uint8, buf_len )
-    FIRInit( taps, delay_line, state, buffer )
-    FIRFilter( taps, delay_line, state, buffer, 1 )
+# multirate state
+type FIRMRState
+    pointer::Vector{Ptr{Uint8}} 
+    buffer::Vector{Uint8} 
 end
 
-# Multirate version
-# (tapsLen + upFactor - 1) / upFactor
-function FIRFilter{ Tsignal, Ttaps }( ::Type{Tsignal}, taps::Array{Ttaps, 1}, resamp_ratio::Rational )
-    taps_len    = length( taps )
-    up_factor   = num( resamp_ratio )
-    down_factor = den( resamp_ratio )
-    delay_len   = int(( taps_len + up_factor - 1 ) / up_factor )
-    delay_line  = zeros( Tsignal, delay_len )
-    state       = Array(Ptr{Uint8}, 1)
-    buf_len     = FIRGetStateSize( Ttaps, Tsignal, length( taps ))
-    buffer      = zeros( Uint8, buf_len )
-    FIRInit( taps, delay_line, state, buffer, resamp_ratio, 0, 0 )
-    FIRFilter( taps, delay_line, state, buffer, resamp_ratio )
+type FIRFilter{Tt, Tx, Ts}
+    taps::Vector{Tt}
+    delayLine::Vector{Tx}
+    state::Ts
+    upFactor::Int
+    downFactor::Int
+    upPhase::Int
+    downPhase::Int    
 end
+
+# Single rate constructor
+function FIRFilter{Tx, Tt}( ::Type{Tx}, taps::Vector{Tt} )
+    tapsLen   = length( taps )
+    pointer   = Array( Ptr{Uint8}, 1)
+    bufLen    = FIRRequiredStateSize( Tt, Tx, tapsLen )
+    delayLine = zeros( Tx, tapsLen )
+    buffer    = zeros( Uint8, bufLen )                        
+    state     = FIRSRState( pointer, buffer )
+    FIRInit( taps, delayLine, pointer, buffer )        
+    FIRFilter( taps, delayLine, state, 1, 1, 0, 0 )
+end    
+
+# Multirate cunstructor
+function FIRFilter{ Tx, Tt }( ::Type{Tx}, taps::Array{Tt, 1}, upFactor, downFactor, upPhase = 0, downPhase = 0 )
+    tapsLen   = length( taps )
+    pointer   = Array( Ptr{Uint8}, 1)
+    bufLen    = FIRRequiredStateSize( Tt, Tx, tapsLen )
+    delayLine = zeros( Tx, tapsLen )
+    buffer    = zeros( Uint8, bufLen )                        
+    state     = FIRMRState( pointer, buffer )
+    FIRInit( taps, delayLine, pointer, buffer, upFactor, downFactor, upPhase, downPhase )        
+    FIRFilter( taps, delayLine, state, upFactor, downFactor, upPhase, downPhase )        
+end  
 
 
 
@@ -304,17 +331,17 @@ end
 #           |    | |  \    |    | |___  |  |___ |  \    | | \| |  |            #
 ################################################################################  
 #  Documentation is horrible, see this link:
-#                hTtapsps://software.intel.com/en-us/forums/topic/307712
+#                hTtps://software.intel.com/en-us/forums/topic/307712
 #
-#  Name:         ippsFIRGetStateSize, ippsFIRMRGeTsignaltateSize,
+#  Name:         ippsFIRRequiredStateSize, ippsFIRMRGeTxtateSize,
 #                ippsFIRInit, ippsFIRMRInit
-#  Purpose:      ippsFIRGetStateSize - calculates the size of the FIR State
+#  Purpose:      ippsFIRRequiredStateSize - calculates the size of the FIR State
 #                                                                   structure;
 #                ippsFIRInit - initialize FIR state - set taps and delay line
 #                using external memory buffer;
 #  Parameters:
-#      pTaps       - pointer to the filter coefficienTsignal;
-#      tapsLen     - number of coefficienTsignal;
+#      pTaps       - pointer to the filter coefficienTx;
+#      tapsLen     - number of coefficienTx;
 #      pDlyLine    - pointer to the delay line values, can be NULL;
 #      ppState     - pointer to the FIR state created or NULL;
 #      upFactor    - multi-rate up factor;
@@ -324,65 +351,53 @@ end
 #      pStateSize  - pointer where to store the calculated FIR State structure
 #                                                             size (in bytes);
 #   Return:
-#      status      - status value returned, iTsignal value are
-#         ippSTsignalNullPtrErr       - pointer(s) to the data is NULL
-#         ippSTsignalFIRLenErr        - tapsLen <= 0
-#         ippSTsignalFIRMRFactorErr   - factor <= 0
-#         ippSTsignalFIRMRPhaseErr    - phase < 0 || factor <= phase
-#         ippSTsignalNoErr            - otherwise
+#      status      - status value returned, iTx value are
+#         ippSTxNullPtrErr       - pointer(s) to the data is NULL
+#         ippSTxFIRLenErr        - tapsLen <= 0
+#         ippSTxFIRMRFactorErr   - factor <= 0
+#         ippSTxFIRMRPhaseErr    - phase < 0 || factor <= phase
+#         ippSTxNoErr            - otherwise
 # 
-for ( julia_fun, ippf_prefix1, ippf_prefix2 )  in  [ (   :FIRInit,  "ippsFIR",  "Init"  ) ]
-    for ( Ttaps, Tsignal, ippf_suffix ) in FIRFilterTypes
+for ( julia_fun, ippf_prefix1, ippf_prefix2 )  in  [ (   :FIRInit,  "ippsFIR",  "Init"  ) ], ( Tt, Tx, ippf_suffix ) in FIRFilterTypes
 
-        # Single rate version
-        ippfsr  = string( ippf_prefix1, ippf_prefix2, ippf_suffix )        
-        @eval begin
-            
-            function $(julia_fun)(  taps::Array{$Ttaps, 1},
-                                    delay_line::Array{$Tsignal, 1},
-                                    state::Array{Ptr{Uint8},1},
-                                    buffer::Array{Uint8, 1}
-                                 )
-                ntaps      = length( taps )
-                ndelayline = length( delay_line ) 
-                @ippscall( $ippfsr, (   Ptr{Uint8},     Ptr{$Ttaps},    IppInt,     Ptr{$Tsignal},      Ptr{Uint8}  ),
-                                        pointer(state), taps,           ntaps,      delay_line,         buffer      )         
-                nothing                                                                                                               
-            end
-
+    # Single rate version
+    ippfsr  = string( ippf_prefix1, ippf_prefix2, ippf_suffix )        
+    @eval begin
+        
+        function $(julia_fun)(  taps::Array{$Tt, 1},
+                                delayLine::Array{$Tx, 1},
+                                state::Array{Ptr{Uint8},1},
+                                buffer::Array{Uint8, 1}
+                             )
+            ntaps      = length( taps )
+            ndelayline = length( delayLine ) 
+            @ippscall( $ippfsr, (   Ptr{Uint8},     Ptr{$Tt},    IppInt,     Ptr{$Tx},      Ptr{Uint8}  ),
+                                    pointer(state), taps,           ntaps,      delayLine,         buffer      )         
+            nothing                                                                                                               
         end
-                    
-        # Multirate version
-        ippfmr  = string( ippf_prefix1, "MR", ippf_prefix2, ippf_suffix )
-        @eval begin
-
-            function $(julia_fun)(  taps::Array{$Ttaps, 1},
-                                    delay_line::Array{$Tsignal, 1},
-                                    state::Array{Ptr{Uint8},1},
-                                    buffer::Array{Uint8, 1},
-                                    resamp_ratio::Rational,
-                                    up_phase::Integer,
-                                    down_phase::Integer
-                                 )
-                ntaps       = length( taps )
-                ndelayline  = length( delay_line )
-                up_factor   = num( resamp_ratio ) 
-                down_factor = den( resamp_ratio )
-                0 <= up_phase < up_factor && 0 <= down_phase < down_factor || throw()
-                @ippscall( $ippfmr, (   Ptr{Uint8},     Ptr{$Ttaps},    IppInt,     IppInt,     IppInt,     IppInt,         IppInt,         Ptr{$Tsignal},      Ptr{Uint8}  ),
-                                        pointer(state), taps,           ntaps,      up_factor,  up_phase,   down_factor,    down_phase,     delay_line,         buffer      )         
-                nothing                                                                                                               
-            end
-
-        end                    
+    
     end
+                
+    # Multirate version
+    ippfmr  = string( ippf_prefix1, "MR", ippf_prefix2, ippf_suffix )
+    @eval begin
+    
+        function $(julia_fun)(  taps::Vector{ $Tt }, delayLine::Vector{ $Tx }, state::Vector{ Ptr{Uint8} }, buffer::Vector{ Uint8 }, upFactor, downFactor, upPhase, downPhase )
+            ntaps      = length( taps )
+            ndelayline = length( delayLine )
+            0 <= upPhase < upFactor && 0 <= downPhase < downFactor || throw()
+            @ippscall( $ippfmr, (   Ptr{Uint8},     Ptr{$Tt}, IppInt, IppInt,    IppInt,  IppInt,     IppInt,    Ptr{$Tx},  Ptr{Uint8} ),
+                                    pointer(state), taps,     ntaps,  upFactor,  upPhase, downFactor, downPhase, delayLine, buffer     )         
+            nothing                                                                                                               
+        end
+    
+    end                    
 end
 
-FIRInit( fir::FIRFilter ) = FIRInit( fir.taps,
-                                     fir.delay_line,
-                                     fir.state,
-                                     fir.buffer
-                                   )
+FIRInit( fir::FIRFilter ) = FIRInit( fir.taps, fir.delayLine, fir.state, fir.buffer )
+
+
+
 
 
 ################################################################################
@@ -401,60 +416,55 @@ FIRInit( fir::FIRFilter ) = FIRInit( fir.taps,
 #      pState      - pointer to the filter state
 #      scaleFactor - scale factor value
 #  Return:
-#      ippSTsignalContextMatchErr  - wrong state identifier
-#      ippSTsignalNullPtrErr       - pointer(s) to the data is NULL
-#      ippSTsignalSizeErr          - numIters is less or equal zero
-#      ippSTsignalNoErr            - otherwise
+#      ippSTxContextMatchErr  - wrong state identifier
+#      ippSTxNullPtrErr       - pointer(s) to the data is NULL
+#      ippSTxSizeErr          - numIters is less or equal zero
+#      ippSTxNoErr            - otherwise
 #  Note: for Multi-Rate filtering
 #          length pSrc = numIters*downFactor
 #          length pDst = numIters*upFactor
 #               for inplace functions max this values
 # 
 for ( julia_fun, ippf_prefix )  in  [ (   :filt,  "ippsFIR"  ) ]
-    for ( Ttaps, Tsignal, ippf_suffix ) in FIRFilterTypes
+    for ( Tt, Tx, ippf_suffix ) in FIRFilterTypes
     
         ippfsr     = string( ippf_prefix, ippf_suffix )
         julia_fun! = symbol(string(julia_fun, '!'))
         
         @eval begin
-            function $(julia_fun!)( self::FIRFilter{$Ttaps, $Tsignal, Int},
-                                    buffer::Array{$Tsignal, 1},
-                                    signal::Array{$Tsignal, 1}
+            function $(julia_fun!)( self::FIRFilter{$Tt, $Tx, FIRSRState},
+                                    buffer::Array{$Tx, 1},
+                                    signal::Array{$Tx, 1}
                                   )
-                sig_len = length( signal )
-                out_len = length( buffer )
-                state_ptr = self.state[1]
-                @ippscall( $ippfsr,  (  Ptr{$Tsignal},  Ptr{$Tsignal},  IppInt,     Ptr{Uint8}  ),
-                                        signal,         buffer,         sig_len,    state_ptr   )         
+                sigLen = length( signal )
+                outLen = length( buffer )
+                statePtr = pointer(self.state.pointer)
+                @ippscall( $ippfsr,  (  Ptr{$Tx},  Ptr{$Tx},  IppInt,     Ptr{Uint8}  ),
+                                        signal,         buffer,         sigLen,    statePtr   )         
                 buffer                                                                                                               
             end            
-            $(julia_fun)( self::FIRFilter{$Ttaps, $Tsignal, Int}, signal::Array{$Tsignal, 1} ) = $(julia_fun!)( self, similar( signal ), signal )
+            $(julia_fun)( self::FIRFilter{$Tt, $Tx, FIRSRState}, signal::Array{$Tx, 1} ) = $(julia_fun!)( self, similar( signal ), signal )
         end
         
         ippfmr = string( ippf_prefix, "MR", ippf_suffix )
         @eval begin            
-            function $(julia_fun!)( self::FIRFilter{ $Ttaps, $Tsignal, Rational{Int64} },
-                                    buffer::Array{$Tsignal, 1},
-                                    signal::Array{$Tsignal, 1} )
-                up_factor   = num( self.resamp_ratio )
-                down_factor = den( self.resamp_ratio )                
-                sig_len     = length( signal )
-                out_len     = length( buffer )
-                sig_len * up_factor == out_len * down_factor || throw()
-                state_ptr   = self.state[1]
-                iterations  = int( sig_len/down_factor )
-                @ippscall( $ippfsr,  (  Ptr{$Tsignal},  Ptr{$Tsignal},  IppInt,     Ptr{Uint8}  ),
-                                        signal,         buffer,         iterations, state_ptr   )         
+            function $(julia_fun!)( self::FIRFilter{ $Tt, $Tx, FIRMRState },
+                                    buffer::Array{$Tx, 1},
+                                    signal::Array{$Tx, 1} )              
+                sigLen = length( signal )
+                outLen = length( buffer )
+                sigLen * self.upFactor == outLen * self.downFactor || throw()
+                iterations  = int( sigLen/self.downFactor )
+                @ippscall( $ippfsr,  (  Ptr{$Tx},  Ptr{$Tx},  IppInt,     Ptr{Uint8}                  ),
+                                        signal,    buffer,    iterations, pointer(self.state.pointer) )         
                 buffer                                                                                                               
             end
             
-            function $(julia_fun)( self::FIRFilter{$Ttaps, $Tsignal, Rational{Int64}}, signal::Array{$Tsignal, 1} )
-                up_factor   = num( self.resamp_ratio )                
-                down_factor = den( self.resamp_ratio )
-                sig_len     = length( signal )
-                sig_len % down_factor == 0 || throw()
-                buf_len = int( sig_len * up_factor / down_factor )
-                buffer  = similar( signal, buf_len ) 
+            function $(julia_fun)( self::FIRFilter{$Tt, $Tx, FIRMRState}, signal::Vector{ $Tx } )
+                sigLen = length( signal )
+                sigLen % self.downFactor == 0 || throw()
+                bufLen = int( sigLen * self.upFactor / self.downFactor )
+                buffer = similar( signal, bufLen ) 
                 $(julia_fun!)( self, buffer, signal )
             end    
         end
