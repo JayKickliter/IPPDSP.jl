@@ -432,41 +432,37 @@ for ( julia_fun, ippf_prefix )  in  [ (   :filt,  "ippsFIR"  ) ]
         julia_fun! = symbol(string(julia_fun, '!'))
         
         @eval begin
-            function $(julia_fun!)( self::FIRFilter{$Tt, $Tx, FIRSRState},
-                                    buffer::Array{$Tx, 1},
-                                    signal::Array{$Tx, 1}
-                                  )
+            function $(julia_fun!)( self::FIRFilter{$Tt, $Tx, FIRSRState}, buffer::Vector{ $Tx }, signal::Vector{ $Tx } )
                 sigLen = length( signal )
-                outLen = length( buffer )
-                statePtr = pointer(self.state.pointer)
-                @ippscall( $ippfsr,  (  Ptr{$Tx},  Ptr{$Tx},  IppInt,     Ptr{Uint8}  ),
-                                        signal,         buffer,         sigLen,    statePtr   )         
+                outLen = length( buffer )                
+                @ippscall( $ippfsr,  (  Ptr{$Tx},       Ptr{$Tx},       IppInt,    Ptr{Uint8}                   ),
+                                        signal,         buffer,         sigLen,    self.state.pointer[1]        )
                 buffer                                                                                                               
             end            
             $(julia_fun)( self::FIRFilter{$Tt, $Tx, FIRSRState}, signal::Array{$Tx, 1} ) = $(julia_fun!)( self, similar( signal ), signal )
         end
         
         ippfmr = string( ippf_prefix, "MR", ippf_suffix )
-        @eval begin            
+        @eval begin
             function $(julia_fun!)( self::FIRFilter{ $Tt, $Tx, FIRMRState },
                                     buffer::Array{$Tx, 1},
-                                    signal::Array{$Tx, 1} )              
+                                    signal::Array{$Tx, 1} )
                 sigLen = length( signal )
                 outLen = length( buffer )
                 sigLen * self.upFactor == outLen * self.downFactor || throw()
                 iterations  = int( sigLen/self.downFactor )
-                @ippscall( $ippfsr,  (  Ptr{$Tx},  Ptr{$Tx},  IppInt,     Ptr{Uint8}                  ),
-                                        signal,    buffer,    iterations, pointer(self.state.pointer) )         
-                buffer                                                                                                               
+                @ippscall( $ippfsr,  (  Ptr{$Tx},  Ptr{$Tx},  IppInt,     Ptr{Uint8}            ),
+                                        signal,    buffer,    iterations, self.state.pointer[1] )
+                buffer
             end
-            
+
             function $(julia_fun)( self::FIRFilter{$Tt, $Tx, FIRMRState}, signal::Vector{ $Tx } )
                 sigLen = length( signal )
                 sigLen % self.downFactor == 0 || throw()
                 bufLen = int( sigLen * self.upFactor / self.downFactor )
-                buffer = similar( signal, bufLen ) 
+                buffer = similar( signal, bufLen )
                 $(julia_fun!)( self, buffer, signal )
-            end    
+            end
         end
         
     end
