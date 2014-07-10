@@ -6,6 +6,7 @@ import IPPCore: IppInt, ippint
 
 # common
 
+typealias IPPInt    Cint
 typealias IPP16s    Int16
 typealias IPP32s    Int32
 typealias IPP16f    Float16
