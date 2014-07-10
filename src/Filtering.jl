@@ -60,7 +60,7 @@ for ( julia_fun, ippf_prefix, types ) in    [   (   :conv,      "ippsConv", [   
                     nx2 = length( x2 )
                     ny == nx1+nx2-1 || throw( DimensionMismatch( "length(y) must be length(x1)+length(x2)-1" ))
                     if ny > 3
-                        @ippscall( $ippf, ( Ptr{$T},    IppInt,     Ptr{$T},    IppInt,     Ptr{$T},    IppInt  ),
+                        @ippscall( $ippf, ( Ptr{$T},    IPPInt,     Ptr{$T},    IPPInt,     Ptr{$T},    IPPInt  ),
                                             x1,         nx1,        x2,         nx2,        y,          scale   )
                     end
                     return y
@@ -77,7 +77,7 @@ for ( julia_fun, ippf_prefix, types ) in    [   (   :conv,      "ippsConv", [   
                     nx2 = length( x2 )
                     ny == nx1+nx2-1 || throw( DimensionMismatch( "length(y) must be length(x1)+length(x2)-1" ))
                     if ny > 3
-                        @ippscall( $ippf, ( Ptr{$T},    IppInt,     Ptr{$T},    IppInt,     Ptr{$T} ),
+                        @ippscall( $ippf, ( Ptr{$T},    IPPInt,     Ptr{$T},    IPPInt,     Ptr{$T} ),
                                             x1,         nx1,        x2,         nx2,        y       )
                     end
                     return y
@@ -118,7 +118,7 @@ for ( julia_fun, ippf_prefix, types ) in    [   (   :xcorr,      "ippsCrossCorr"
                     nx2 = length( x2 )
                     ny > 1 && nx1 > 1 && nx2 > 1 || throw() # TODO: Check constrainTx                    
                     if ny > 3
-                        @ippscall( $ippf, ( Ptr{$T},    IppInt,     Ptr{$T},    IppInt,     Ptr{$T},    IppInt, IppInt,  IppInt ),
+                        @ippscall( $ippf, ( Ptr{$T},    IPPInt,     Ptr{$T},    IPPInt,     Ptr{$T},    IPPInt, IPPInt,  IPPInt ),
                                             x1,         nx1,        x2,         nx2,        y,          ny,     lowlag,  scale  )
                     end
                     return y
@@ -135,7 +135,7 @@ for ( julia_fun, ippf_prefix, types ) in    [   (   :xcorr,      "ippsCrossCorr"
                     nx2 = length( x2 )
                     ny > 1 && nx1 > 1 && nx2 > 1 || throw() # TODO: Check constrainTx                    
                     if ny > 3
-                        @ippscall( $ippf, ( Ptr{$T},    IppInt,     Ptr{$T},    IppInt,     Ptr{$T},    IppInt, IppInt  ),
+                        @ippscall( $ippf, ( Ptr{$T},    IPPInt,     Ptr{$T},    IPPInt,     Ptr{$T},    IPPInt, IPPInt  ),
                                             x1,         nx1,        x2,         nx2,        y,          ny,     lowlag  )
                     end
                     return y
@@ -169,7 +169,7 @@ for ( julia_fun, ippf_prefix )  in  [   (   :autocorr,  "ippsAutoCorr"          
                     nx = length( x )
                     ny == nx || throw( DimensionMismatch("length(y) != length(x) ") )
                     if ny > 0
-                        @ippscall( $ippf, ( Ptr{$T},    IppInt, Ptr{$T},    IppInt, IppInt  ), 
+                        @ippscall( $ippf, ( Ptr{$T},    IPPInt, Ptr{$T},    IPPInt, IPPInt  ), 
                                             x,          nx,     y,          ny,     scale   )
                     end
             
@@ -186,7 +186,7 @@ for ( julia_fun, ippf_prefix )  in  [   (   :autocorr,  "ippsAutoCorr"          
                     nx = length( x )
                     ny == nx|| throw( DimensionMismatch("length(y) != length(x) ") ) #todo: check this
                     if ny > 0
-                        @ippscall( $ippf, ( Ptr{$T},    IppInt, Ptr{$T},    IppInt  ), 
+                        @ippscall( $ippf, ( Ptr{$T},    IPPInt, Ptr{$T},    IPPInt  ), 
                                             x,          nx,     y,          ny      )
                     end
             
@@ -242,9 +242,9 @@ for ( julia_fun, ippf_prefix1, ippf_prefix2 )  in  [ (   :FIRRequiredStateSize, 
         ippfsr = string( ippf_prefix1, ippf_prefix2, ippf_suffix )
         @eval begin
             function $(julia_fun)( ::Type{$T_taps}, ::Type{$T_sig}, tapslen::Integer  )
-                buffersize = IppInt[0]  # the function will fill this value
+                buffersize = IPPInt[0]  # the function will fill this value
                 tapslen > 0 || throw( ) # todo: check this
-                @ippscall( $ippfsr, ( IppInt,     Ptr{IppInt} ),
+                @ippscall( $ippfsr, ( IPPInt,     Ptr{IPPInt} ),
                                       tapslen,    buffersize    )
 
                 return buffersize[1]
@@ -255,9 +255,9 @@ for ( julia_fun, ippf_prefix1, ippf_prefix2 )  in  [ (   :FIRRequiredStateSize, 
         ippfmr = string( ippf_prefix1, "MR", ippf_prefix2, ippf_suffix )
         @eval begin
             function $(julia_fun)( ::Type{$T_taps}, ::Type{$T_sig}, tapslen::Integer, upFactor::Integer, downFactor::Integer )
-                buffersize = IppInt[0]  # the function will fill this value
+                buffersize = IPPInt[0]  # the function will fill this value
                 tapslen > 0 || throw( ) # todo: check this
-                @ippscall( $ippfmr, ( IppInt,   IppInt,    IppInt,      Ptr{IppInt} ),
+                @ippscall( $ippfmr, ( IPPInt,   IPPInt,    IPPInt,      Ptr{IPPInt} ),
                                       tapslen,  upFactor,  downFactor,  buffersize    )
 
                 return buffersize[1]
@@ -380,7 +380,7 @@ for ( julia_fun, ippf_prefix1, ippf_prefix2 )  in  [ (   :FIRInit,  "ippsFIR",  
             ntaps          = length( taps )
             ndelayline     = length( delayLine )
             statePtr       = Array( Ptr{Void}, 1 )         
-            @ippscall( $ippfsr, (   Ptr{Void},         Ptr{$Tt},    IppInt,     Ptr{$Tx},      Ptr{Uint8}   ),
+            @ippscall( $ippfsr, (   Ptr{Void},         Ptr{$Tt},    IPPInt,     Ptr{$Tx},      Ptr{Uint8}   ),
                                     pointer(statePtr),  taps,        ntaps,      delayLine,     state.buffer )         
             state.pointer = statePtr[1]
             nothing                                                                                                               
@@ -397,7 +397,7 @@ for ( julia_fun, ippf_prefix1, ippf_prefix2 )  in  [ (   :FIRInit,  "ippsFIR",  
             ndelayline     = length( delayLine )
             statePtr       = Array( Ptr{Void}, 1 )         
             0 <= upPhase < upFactor && 0 <= downPhase < downFactor || throw()
-            @ippscall( $ippfmr, (   Ptr{Void},         Ptr{$Tt}, IppInt, IppInt,    IppInt,  IppInt,     IppInt,    Ptr{$Tx},  Ptr{Uint8}   ),
+            @ippscall( $ippfmr, (   Ptr{Void},         Ptr{$Tt}, IPPInt, IPPInt,    IPPInt,  IPPInt,     IPPInt,    Ptr{$Tx},  Ptr{Uint8}   ),
                                     pointer(statePtr),  taps,     ntaps,  upFactor,  upPhase, downFactor, downPhase, delayLine, state.buffer )
             state.pointer = statePtr[1]
             nothing                                                                                                               
@@ -446,7 +446,7 @@ for ( julia_fun, ippf_prefix )  in  [ (   :filt,  "ippsFIR"  ) ], ( Tt, Tx, ippf
         function $(julia_fun!)( self::FIRFilter{$Tt, $Tx, FIRSRState}, buffer::Vector{ $Tx }, signal::Vector{ $Tx } )
             sigLen = length( signal )
             outLen = length( buffer )                
-            @ippscall( $ippfsr,  (  Ptr{$Tx},       Ptr{$Tx},       IppInt,    Ptr{Void}                    ),
+            @ippscall( $ippfsr,  (  Ptr{$Tx},       Ptr{$Tx},       IPPInt,    Ptr{Void}                    ),
                                     signal,         buffer,         sigLen,    self.state.pointer           )
             buffer                                                                                                               
         end            
@@ -462,7 +462,7 @@ for ( julia_fun, ippf_prefix )  in  [ (   :filt,  "ippsFIR"  ) ], ( Tt, Tx, ippf
             outLen = length( buffer )
             sigLen * self.upFactor == outLen * self.downFactor || throw()
             iterations  = int( sigLen/self.downFactor )
-            @ippscall( $ippfsr,  (  Ptr{$Tx},  Ptr{$Tx},  IppInt,     Ptr{Void}            ),
+            @ippscall( $ippfsr,  (  Ptr{$Tx},  Ptr{$Tx},  IPPInt,     Ptr{Void}            ),
                                     signal,    buffer,    iterations, self.state.pointer   )
             buffer
         end
