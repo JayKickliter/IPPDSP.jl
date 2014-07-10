@@ -31,8 +31,6 @@ ipp64fc( x ) = convert( IPP64fc, x )
 
 
 
-
-
 macro ippscall(ippf, argtypes, args...)
     quote
         ret = ccall(($ippf, "libipps"), IppStatus,
