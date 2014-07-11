@@ -32,8 +32,8 @@ FIRFilterTypes =    [   ( :IPP32f,      :IPP32f,    "_32f"       ),
                         ( :IPP32fc,     :IPP32fc,   "_32fc"      ),
                         ( :IPP64f,      :IPP64f,    "_64f"       ),
                         ( :IPP64fc,     :IPP64fc,   "_64fc"      ),
-                        ( :IPP32f,      :Int16,     "32f_16s"    ),
-                        ( :IPP64f,      :Int16,     "64f_16s"    ),
+                        ( :IPP32f,      :IPP16s,     "32f_16s"    ),
+                        ( :IPP64f,      :IPP16s,     "64f_16s"    ),
                         ( :IPP64f,      :IPP32f,    "64f_32f"    ),
                         ( :IPP64f,      :Int32,     "64f_32s"    ),
                         ( :IPP64fc,     :IPP16sc,   "64fc_16sc"  ),
@@ -45,7 +45,7 @@ FIRFilterTypes =    [   ( :IPP32f,      :IPP32f,    "_32f"       ),
 
 for ( julia_fun, ippf_prefix, types ) in    [   (   :conv,      "ippsConv", [   ( :IPP32f, "32f"     ),
                                                                                 ( :IPP64f, "64f"     ),
-                                                                                ( :Int16,   "16s_Sfs" ) ] ) ]
+                                                                                ( :IPP16s, "16s_Sfs" ) ] ) ]
     julia_fun! = symbol(string(julia_fun, '!'))
 
     for ( T, ipp_suffix ) in types
@@ -58,7 +58,7 @@ for ( julia_fun, ippf_prefix, types ) in    [   (   :conv,      "ippsConv", [   
                     ny  = length( y )
                     nx1 = length( x1 )
                     nx2 = length( x2 )
-                    ny == nx1+nx2-1 || throw( DimensionMismatch( "length(y) must be length(x1)+length(x2)-1" ))
+                    ny == nx1+nx2-1 || error("Length(y) must equal length(x1)+length(x2)-1" )
                     if ny > 3
                         @ippscall( $ippf, ( Ptr{$T},    IPPInt,     Ptr{$T},    IPPInt,     Ptr{$T},    IPPInt  ),
                                             x1,         nx1,        x2,         nx2,        y,          scale   )
@@ -75,7 +75,7 @@ for ( julia_fun, ippf_prefix, types ) in    [   (   :conv,      "ippsConv", [   
                     ny  = length( y )
                     nx1 = length( x1 )
                     nx2 = length( x2 )
-                    ny == nx1+nx2-1 || throw( DimensionMismatch( "length(y) must be length(x1)+length(x2)-1" ))
+                    ny == nx1+nx2-1 || error( "length(y) must be length(x1)+length(x2)-1" )
                     if ny > 3
                         @ippscall( $ippf, ( Ptr{$T},    IPPInt,     Ptr{$T},    IPPInt,     Ptr{$T} ),
                                             x1,         nx1,        x2,         nx2,        y       )
@@ -98,11 +98,11 @@ end
 #               |___ |__| |  \ |  \ |___ |___ |  |  |  | |__| | \|             #
 ################################################################################                                           
 
-for ( julia_fun, ippf_prefix, types ) in    [   (   :xcorr,      "ippsCrossCorr", [     ( :IPP32f,             "32f"       ),
-                                                                                        ( :IPP64f,             "64f"       ),
-                                                                                        ( :(IPP32fc),  "32fc"      ),
-                                                                                        ( :(IPP64fc),  "64fc"      ),
-                                                                                        ( :Int16,               "16s_Sfs"   ) ] ) ]
+for ( julia_fun, ippf_prefix, types ) in    [   (   :xcorr,      "ippsCrossCorr", [     ( :IPP32f,  "32f"       ),
+                                                                                        ( :IPP64f,  "64f"       ),
+                                                                                        ( :IPP32fc, "32fc"      ),
+                                                                                        ( :IPP64fc, "64fc"      ),
+                                                                                        ( :IPP16s,  "16s_Sfs"   ) ] ) ]
 
     julia_fun! = symbol(string(julia_fun, '!'))
 
@@ -110,13 +110,13 @@ for ( julia_fun, ippf_prefix, types ) in    [   (   :xcorr,      "ippsCrossCorr"
 
         ippf  = string( ippf_prefix, '_', ipp_suffix )
         
-        if eval(T)==Int16 # scaled version
+        if eval(T)==IPP16s # scaled version
             @eval begin
                 function $(julia_fun!)( y::Array{$T}, x1::Array{$T}, x2::Array{$T}; scale::Integer = 0, lowlag::Integer = 0)
                     ny  = length( y )
                     nx1 = length( x1 )
                     nx2 = length( x2 )
-                    ny > 1 && nx1 > 1 && nx2 > 1 || throw() # TODO: Check constrainTx                    
+                    ny > 1 && nx1 > 1 && nx2 > 1 || error()                   
                     if ny > 3
                         @ippscall( $ippf, ( Ptr{$T},    IPPInt,     Ptr{$T},    IPPInt,     Ptr{$T},    IPPInt, IPPInt,  IPPInt ),
                                             x1,         nx1,        x2,         nx2,        y,          ny,     lowlag,  scale  )
@@ -133,7 +133,7 @@ for ( julia_fun, ippf_prefix, types ) in    [   (   :xcorr,      "ippsCrossCorr"
                     ny  = length( y )
                     nx1 = length( x1 )
                     nx2 = length( x2 )
-                    ny > 1 && nx1 > 1 && nx2 > 1 || throw() # TODO: Check constrainTx                    
+                    ny > 1 && nx1 > 1 && nx2 > 1 || error() # TODO: Check constrainTx                    
                     if ny > 3
                         @ippscall( $ippf, ( Ptr{$T},    IPPInt,     Ptr{$T},    IPPInt,     Ptr{$T},    IPPInt, IPPInt  ),
                                             x1,         nx1,        x2,         nx2,        y,          ny,     lowlag  )
@@ -147,22 +147,22 @@ for ( julia_fun, ippf_prefix, types ) in    [   (   :xcorr,      "ippsCrossCorr"
     end
 end
 
-for ( julia_fun, ippf_prefix )  in  [   (   :autocorr,  "ippsAutoCorr"          ),      
-                                        (   :autocorrb, "ippsAutoCorr_NormA"    ),    
-                                        (   :autocorru, "ippsAutoCorr_NormB"    )   ]
+for ( julia_fun, ippf_prefix )  in  [   ( :autocorr,  "ippsAutoCorr"       ),      
+                                        ( :autocorrb, "ippsAutoCorr_NormA" ),    
+                                        ( :autocorru, "ippsAutoCorr_NormB" )   ]
                                             
     julia_fun! = symbol(string(julia_fun, '!'))
 
-    for ( T, ippf_suffix ) in [ (   :Int16,                 "16s_Sfs"   ),
-                                (   :IPP32f,               "32f"       ), 
-                                (   :IPP64f,               "64f"       ),
-                                (   :(IPP16fc),    "16fc"      ),
-                                (   :(IPP32fc),    "32fc"      ),
-                                (   :(IPP64fc),    "64fc"      ) ]
+    for ( T, ippf_suffix ) in [ ( :IPP16s,  "16s_Sfs" ),
+                                ( :IPP32f,  "32f"     ), 
+                                ( :IPP64f,  "64f"     ),
+                                ( :IPP16fc, "16fc"    ),
+                                ( :IPP32fc, "32fc"    ),
+                                ( :IPP64fc, "64fc"    ) ]
 
         ippf  = string( ippf_prefix, '_', ippf_suffix )
         
-        if eval(T) == Int16
+        if eval(T) == IPP16s
             @eval begin
                 function $(julia_fun!)( y::Array{$T}, x::Array{$T}; scale::Integer = 0 )
                     ny = length( y )
@@ -200,81 +200,11 @@ for ( julia_fun, ippf_prefix )  in  [   (   :autocorr,  "ippsAutoCorr"          
     end
 end
 
-
-
-
-################################################################################
-#     ____ _ ____    ____ _ _    ___ ____ ____    ____ ___ ____ ___ ____       #
-#     |___ | |__/    |___ | |     |  |___ |__/    [__   |  |__|  |  |___       #
-#     |    | |  \    |    | |___  |  |___ |  \    ___]  |  |  |  |  |___       #
-################################################################################  
-#   Name:         ippsFIRRequiredStateSize, ippsFIRMRRequiredStateSize,
-#                 ippsFIRInit, ippsFIRMRInit
-#   Purpose:      ippsFIRRequiredStateSize - calculates the size of the FIR State
-#                                                                    structure;
-#                 ippsFIRInit - initialize FIR state - set taps and delay line
-#                 using external memory buffer;
-#   Parameters:
-#       pTaps       - pointer to the filter coefficients;
-#       tapsLen     - number of coefficients;
-#       pDlyLine    - pointer to the delay line values, can be NULL;
-#       ppState     - pointer to the FIR state created or NULL;
-#       upFactor    - multi-rate up factor;
-#       upPhase     - multi-rate up phase;
-#       downFactor  - multi-rate down factor;
-#       downPhase   - multi-rate down phase;
-#       pStateSize  - pointer where to store the calculated FIR State structure
-#                                                              size (in bytes);
-#    Return:
-#       status      - status value returned, its value are
-#          ippStsNullPtrErr       - pointer(s) to the data is NULL
-#          ippStsFIRLenErr        - tapsLen <= 0
-#          ippStsFIRMRFactorErr   - factor <= 0
-#          ippStsFIRMRPhaseErr    - phase < 0 || factor <= phase
-#          ippStsNoErr            - otherwise
-
-# IppStatus ippsFIRMRRequiredStateSize_64fc(int tapsLen, int upFactor, int downFactor, int* pBufferSize);
-
-for ( julia_fun, ippf_prefix1, ippf_prefix2 )  in  [ (   :FIRRequiredStateSize,  "ippsFIR",  "GetStateSize"  ) ]
-    for ( T_taps, T_sig, ippf_suffix ) in FIRFilterTypes
-            
-        # Single rate version
-        ippfsr = string( ippf_prefix1, ippf_prefix2, ippf_suffix )
-        @eval begin
-            function $(julia_fun)( ::Type{$T_taps}, ::Type{$T_sig}, tapslen::Integer  )
-                buffersize = IPPInt[0]  # the function will fill this value
-                tapslen > 0 || throw( ) # todo: check this
-                @ippscall( $ippfsr, ( IPPInt,     Ptr{IPPInt} ),
-                                      tapslen,    buffersize    )
-
-                return buffersize[1]
-            end
-        end
-        
-        # Multirate version
-        ippfmr = string( ippf_prefix1, "MR", ippf_prefix2, ippf_suffix )
-        @eval begin
-            function $(julia_fun)( ::Type{$T_taps}, ::Type{$T_sig}, tapslen::Integer, upFactor::Integer, downFactor::Integer )
-                buffersize = IPPInt[0]  # the function will fill this value
-                tapslen > 0 || throw( ) # todo: check this
-                @ippscall( $ippfmr, ( IPPInt,   IPPInt,    IPPInt,      Ptr{IPPInt} ),
-                                      tapslen,  upFactor,  downFactor,  buffersize    )
-
-                return buffersize[1]
-            end
-            $(julia_fun)( ::Type{$T_taps}, ::Type{$T_sig}, tapslen::Integer, resamp_ratio::Rational ) = $(julia_fun)( $T_taps, $T_sig, tapslen, num(resamp_ratio), den(resamp_ratio) )
-        end        
-    end
-end
-
-
-
 ################################################################################
 #      ____ _ ____    ____ _ _    ___ ____ ____    ___ _   _ ___  ____         #
 #      |___ | |__/    |___ | |     |  |___ |__/     |   \_/  |__] |___         #
 #      |    | |  \    |    | |___  |  |___ |  \     |    |   |    |___         #
 ################################################################################  
-
 
 # IPP assings a pointer to state
 # This points to an invisuble-to-us struct in buffer
@@ -293,6 +223,12 @@ end
 
 # Multirate state
 type FIRMRState
+    pointer::Ptr{Void}
+    buffer::Vector{Uint8} 
+end
+
+# Polyphase state
+type FIRPPState
     pointer::Ptr{Void}
     buffer::Vector{Uint8} 
 end
@@ -336,39 +272,71 @@ end
 FIRFilter{ Tx, Tt }( ::Type{Tx}, taps::Array{Tt, 1}, resampleRatio::Rational, upPhase = 0, downPhase = 0 ) = FIRFilter( Tx, taps, num(resampleRatio), den(resampleRatio), upPhase, downPhase )
 
 
+
+
 ################################################################################
 #           ____ _ ____    ____ _ _    ___ ____ ____    _ _  _ _ ___           #
 #           |___ | |__/    |___ | |     |  |___ |__/    | |\ | |  |            #
 #           |    | |  \    |    | |___  |  |___ |  \    | | \| |  |            #
 ################################################################################  
-#  Documentation is horrible, see this link:
-#                hTtps://software.intel.com/en-us/forums/topic/307712
-#
-#  Name:         ippsFIRRequiredStateSize, ippsFIRMRGeTxtateSize,
-#                ippsFIRInit, ippsFIRMRInit
-#  Purpose:      ippsFIRRequiredStateSize - calculates the size of the FIR State
-#                                                                   structure;
-#                ippsFIRInit - initialize FIR state - set taps and delay line
-#                using external memory buffer;
-#  Parameters:
-#      pTaps       - pointer to the filter coefficienTx;
-#      tapsLen     - number of coefficienTx;
-#      pDlyLine    - pointer to the delay line values, can be NULL;
-#      ppState     - pointer to the FIR state created or NULL;
-#      upFactor    - multi-rate up factor;
-#      upPhase     - multi-rate up phase;
-#      downFactor  - multi-rate down factor;
-#      downPhase   - multi-rate down phase;
-#      pStateSize  - pointer where to store the calculated FIR State structure
-#                                                             size (in bytes);
-#   Return:
-#      status      - status value returned, iTx value are
-#         ippSTxNullPtrErr       - pointer(s) to the data is NULL
-#         ippSTxFIRLenErr        - tapsLen <= 0
-#         ippSTxFIRMRFactorErr   - factor <= 0
-#         ippSTxFIRMRPhaseErr    - phase < 0 || factor <= phase
-#         ippSTxNoErr            - otherwise
-# 
+#   Name:         ippsFIRGetStateSize, ippsFIRMRGetStateSize,
+#                 ippsFIRInit, ippsFIRMRInit
+#   Purpose:      ippsFIRGetStateSize   - calculates the size of the FIR Statestructure;
+#                 ippsFIRInit           - initialize FIR state - set taps and delay line
+#                 using external memory buffer;
+#   Parameters:
+#       pTaps       - pointer to the filter coefficients;
+#       tapsLen     - number of coefficients;
+#       pDlyLine    - pointer to the delay line values, can be NULL;
+#       ppState     - pointer to the FIR state created or NULL;
+#       upFactor    - multi-rate up factor;
+#       upPhase     - multi-rate up phase;
+#       downFactor  - multi-rate down factor;
+#       downPhase   - multi-rate down phase;
+#       pStateSize  - pointer where to store the calculated FIR State structure
+#                                                              size (in bytes);
+#    Return:
+#       status      - status value returned, its value are
+#          ippStsNullPtrErr       - pointer(s) to the data is NULL
+#          ippStsFIRLenErr        - tapsLen <= 0
+#          ippStsFIRMRFactorErr   - factor <= 0
+#          ippStsFIRMRPhaseErr    - phase < 0 || factor <= phase
+#          ippStsNoErr            - otherwise
+
+# IppStatus ippsFIRMRRequiredStateSize_64fc(int tapsLen, int upFactor, int downFactor, int* pBufferSize);
+
+for ( julia_fun, ippf_prefix1, ippf_prefix2 )  in  [ (   :FIRRequiredStateSize,  "ippsFIR",  "GetStateSize"  ) ]
+    for ( T_taps, T_sig, ippf_suffix ) in FIRFilterTypes
+            
+        # Single rate version
+        ippfsr = string( ippf_prefix1, ippf_prefix2, ippf_suffix )
+        @eval begin
+            function $(julia_fun)( ::Type{$T_taps}, ::Type{$T_sig}, tapslen::Integer  )
+                buffersize = IPPInt[0]  # the function will fill this value
+                tapslen > 0 || error()
+                @ippscall( $ippfsr, ( IPPInt,     Ptr{IPPInt} ),
+                                      tapslen,    buffersize    )
+
+                return buffersize[1]
+            end
+        end
+        
+        # Multirate version
+        ippfmr = string( ippf_prefix1, "MR", ippf_prefix2, ippf_suffix )
+        @eval begin
+            function $(julia_fun)( ::Type{$T_taps}, ::Type{$T_sig}, tapslen::Integer, upFactor::Integer, downFactor::Integer )
+                buffersize = IPPInt[0]  # the function will fill this value
+                tapslen > 0 || error() # todo: check this
+                @ippscall( $ippfmr, ( IPPInt,   IPPInt,    IPPInt,      Ptr{IPPInt} ),
+                                      tapslen,  upFactor,  downFactor,  buffersize    )
+
+                return buffersize[1]
+            end
+            $(julia_fun)( ::Type{$T_taps}, ::Type{$T_sig}, tapslen::Integer, resamp_ratio::Rational ) = $(julia_fun)( $T_taps, $T_sig, tapslen, num(resamp_ratio), den(resamp_ratio) )
+        end        
+    end
+end
+
 for ( julia_fun, ippf_prefix1, ippf_prefix2 )  in  [ (   :FIRInit,  "ippsFIR",  "Init"  ) ],    ( Tt, Tx, ippf_suffix ) in FIRFilterTypes
 
     julia_fun! = symbol(string(julia_fun, '!'))
@@ -396,7 +364,7 @@ for ( julia_fun, ippf_prefix1, ippf_prefix2 )  in  [ (   :FIRInit,  "ippsFIR",  
             ntaps          = length( taps )
             ndelayline     = length( delayLine )
             statePtr       = Array( Ptr{Void}, 1 )         
-            0 <= upPhase < upFactor && 0 <= downPhase < downFactor || throw()
+            0 <= upPhase < upFactor && 0 <= downPhase < downFactor || error()
             @ippscall( $ippfmr, (   Ptr{Void},         Ptr{$Tt}, IPPInt, IPPInt,    IPPInt,  IPPInt,     IPPInt,    Ptr{$Tx},  Ptr{Uint8}   ),
                                     pointer(statePtr),  taps,     ntaps,  upFactor,  upPhase, downFactor, downPhase, delayLine, state.buffer )
             state.pointer = statePtr[1]
@@ -405,9 +373,6 @@ for ( julia_fun, ippf_prefix1, ippf_prefix2 )  in  [ (   :FIRInit,  "ippsFIR",  
     
     end                    
 end
-
-# FIRInit( fir::FIRFilter ) = FIRInit( fir.taps, fir.delayLine, fir.state, fir.buffer )
-
 
 
 
@@ -460,7 +425,7 @@ for ( julia_fun, ippf_prefix )  in  [ (   :filt,  "ippsFIR"  ) ], ( Tt, Tx, ippf
                                 signal::Array{$Tx, 1} )
             sigLen = length( signal )
             outLen = length( buffer )
-            sigLen * self.upFactor == outLen * self.downFactor || throw()
+            sigLen * self.upFactor == outLen * self.downFactor || error()
             iterations  = int( sigLen/self.downFactor )
             @ippscall( $ippfsr,  (  Ptr{$Tx},  Ptr{$Tx},  IPPInt,     Ptr{Void}            ),
                                     signal,    buffer,    iterations, self.state.pointer   )
@@ -469,7 +434,7 @@ for ( julia_fun, ippf_prefix )  in  [ (   :filt,  "ippsFIR"  ) ], ( Tt, Tx, ippf
     
         function $(julia_fun)( self::FIRFilter{$Tt, $Tx, FIRMRState}, signal::Vector{ $Tx } )
             sigLen = length( signal )
-            sigLen % self.downFactor == 0 || throw()
+            sigLen % self.downFactor == 0 || error()
             bufLen = int( sigLen * self.upFactor / self.downFactor )
             buffer = similar( signal, bufLen )
             $(julia_fun!)( self, buffer, signal )
@@ -518,3 +483,7 @@ end
 #  
 #  IPPAPI(IppStatus, ippsFIRGenBandstop_64f, (Ipp64f rLowFreq, Ipp64f rHighFreq, Ipp64f* taps,
 #                                       int tapsLen, IppWinType winType, IppBool doNormal))
+
+
+
+
