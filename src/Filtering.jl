@@ -502,7 +502,7 @@ for ( julia_fun, ippf_prefix )  in  [   ( :FIRTapsHighpass,  "ippsFIRGenHighpass
                 innerBuffer = Tt == $T ? buffer : Array( $T, Ntaps )
                 @ippscall( $ippf,  (  IPP64f, Ptr{$T},      IPPInt, IPPInt,     Bool        ),
                                       ω,      innerBuffer,  Ntaps,  windowType, normalize   )
-                return Tt == $T ? buffer : [ buffer[i] = innerBuffer[i] for i = 1:Ntaps ]
+                return Tt == $T ? buffer : [ buffer[i] = convert( Tt, innerBuffer[i] ) for i = 1:Ntaps ]
             end # function
             
             $(julia_fun){Tt}( ::Type{Tt}, Ntaps::Integer, ω::FloatingPoint, windowType::Int, normalize = true ) = $(julia_fun!)( Array(Tt, Ntaps), ω, windowType, normalize )
