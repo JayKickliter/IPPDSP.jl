@@ -2,7 +2,7 @@
 
 This package provides wrapper functions for Intel's [Integrated Performance Primitives](https://software.intel.com/en-us/intel-ipp). Specifically, **IPPDSP** targets libIPPS's [DSP](http://en.wikipedia.org/wiki/Digital_signal_processing) functions and data structures.
 
-**IPPDSP** originally started as additions to Dahua Lin's **IPPMath**, as they both wrap `libIPPS`. Even though they use the same library, we decided that DSP specific functionality belonged in its own package. Special thanks to Dahua for laying a foundation for me. Until I read his code I was a clueless when it came to using Julia's metaprogramming facilities.
+**IPPDSP** originally started as additions to Dahua Lin's **IPPMath**, as they both wrap `libIPPS`. Even though they use the same library, we decided that DSP specific functionality belonged in its own package. Special thanks to Dahua for laying a foundation for me. Until I read his code I was clueless when it came to using Julia's metaprogramming facilities.
 
 
 ## Installation Notes ##
@@ -16,7 +16,7 @@ This package provides wrapper functions for Intel's [Integrated Performance Prim
 ### Binary Dependancies ###
 
 
-IPP is a commercial product. To use **IPPDSP**, you will need to manually install the IPP libraries.  You can download a 30 day trial for free. They are available for Windows, Linux, and OS X. The location of the libraries will need to be in either you OS library search path, or in Julia's global variable `DS_LOAD_PATH`. If Julia can't find `libIPPS`, at the command `push!(DL_LOAD_PATH, "/path/to/IPPLibs")` in `.juliarc.jl` located in your home folder. Here's the contents of my `.juliarc.jl` (OS X): 
+IPP is a commercial product. To use **IPPDSP**, you will need to manually install the IPP libraries.  You can download a 30 day trial for free. They are available for Windows, Linux, and OS X. The location of the libraries will need to be in either your OS library search path, or in Julia's global variable `DS_LOAD_PATH`. If Julia can't find `libIPPS`, add the command `push!(DL_LOAD_PATH, "/path/to/IPPLibs")` in `.juliarc.jl` located in your home folder. Here's the contents of my `.juliarc.jl` (OS X): 
 
 ```jl
     push!(DL_LOAD_PATH, "/opt/intel/ipp/lib")
@@ -25,7 +25,7 @@ IPP is a commercial product. To use **IPPDSP**, you will need to manually instal
 ### Note for OS X Users ###
 
 
-OS X dynamic libraries have their own paths, and the paths of their dependencies, hard-coded in the file. And for some reason IPP dylibs have their set relative to the library folder. So if you were to launch the Julia process from anywhere other than IPP's `lib` folder, **IPPDSP** will not work. There are three workaround:
+OS X dynamic libraries have their own paths, and the paths of their dependencies, hard-coded in the file. For some reason, IPP dylibs have their set relative to the library folder. So if you were to launch the Julia process from anywhere other than IPP's `lib` folder, **IPPDSP** will not work. There are three workarounds:
 
 * Launch Julia from `/opt/intel/ipp/lib`
 * Launch Julia, then run the command `cd("/opt/intel/ipp/lib")`
@@ -46,9 +46,9 @@ julia> Pkg.clone("https://github.com/JayKickliter/IPPDSP.jl.git")
 	
 ## Documentation ##
 
-Notice that most of the functions listed are statically typed. That is because IPP provided plain c functions that are statically typed. There are a few places I've overridden IPP's static typing. These are functions that are typically only used as setup functions, like generating FIR filter coefficients.
+Notice that most of the functions listed are statically typed. That is because IPP provided plain C functions that are statically typed. There are a few places I've overridden IPP's static typing. These are functions that are typically only used as setup functions, like generating FIR filter coefficients.
 
-IPP has depreciated in-place functions. Some not-in-place functions will work when passed the same pointer for source and destination buffer, but I haven't tested which ones work correctly yet. So all in-place functions you see here, denoted by a bang (`funcname!`), overwrite a vector provided by you. If you are doing the same operation over and over, and the output size will always be the same, using an in-place function with a pre-allocated can substantially increase performance.
+IPP has depreciated in-place functions. Some not-in-place functions will work when passed the same pointer for source and destination buffer, but I haven't tested which ones work correctly yet. So all in-place functions you see here, denoted by a bang (`funcname!`), overwrite a vector provided by you. If you are doing the same operation over and over, and the output size will always be the same, using an in-place function with a pre-allocated buffer can substantially increase performance.
 
 **Note:** the named argument `scale` only applies when the left (or both) argument is an integer vector. ( TODO: cite Intel's explanation of this )
 
