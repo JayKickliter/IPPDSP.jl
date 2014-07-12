@@ -211,9 +211,9 @@ Back to stateful filtering, here's a typical scenerio:
 4. Do something with `mySamples`
 5. `GOTO 2`
 
-## Single-Rate Constructor ##
+### Single-Rate Constructor ###
 
-Internally, IPP use polyphase deconstruction to more efficiently filter with interpolation and decimation.
+Internally, IPP use polyphase deconstruction to efficiently filter with interpolation and decimation.
 
 ```julia
 myFilter = FIRFilter( ::Type{Tx}, taps::Vector{Ttaps} )
@@ -224,7 +224,8 @@ myFilter = FIRFilter( ::Type{Tx}, taps::Vector{Ttaps} )
 * `::Type{Tx}`: data type of the signal you will be filtering
 * `taps`: your FIR filter coefficients
 
-## Multirate Constructor ##
+### Multirate Constructor ###
+
 
 Internally, IPP use polyphase deconstruction to more efficiently filter with interpolation and decimation.
 
