@@ -56,7 +56,7 @@ for ( julia_fun, ippf_prefix, types ) in    [   (   :conv,      "ippsConv", [   
         
         if eval(T)<:Integer # integer versions require a scaling factor
             @eval begin
-                function $(julia_fun!)( y::Array{$T}, x1::Array{$T}, x2::Array{$T}, scale::Integer  )
+                function $(julia_fun!)( y::Array{$T}, x1::Array{$T}, x2::Array{$T}; scale = 0  )
                     ny  = length( y )
                     nx1 = length( x1 )
                     nx2 = length( x2 )
@@ -68,7 +68,7 @@ for ( julia_fun, ippf_prefix, types ) in    [   (   :conv,      "ippsConv", [   
                     return y
                 end
             
-                $(julia_fun)(  x1::Array{$T}, x2::Array{$T}, scale::Integer ) = $(julia_fun!)( similar(x1, length(x1) + length(x2) - 1), x1, x2, scale )
+                $(julia_fun)(  x1::Array{$T}, x2::Array{$T}; args... ) = $(julia_fun!)( similar(x1, length(x1) + length(x2) - 1), x1, x2; args... )
             
             end
         else
@@ -166,7 +166,7 @@ for ( julia_fun, ippf_prefix )  in  [   ( :autocorr,  "ippsAutoCorr"       ),
         
         if eval(T) == IPP16s
             @eval begin
-                function $(julia_fun!)( y::Array{$T}, x::Array{$T}; scale::Integer = 0 )
+                function $(julia_fun!)( y::Array{$T}, x::Array{$T}; scale = 0 )
                     ny = length( y )
                     nx = length( x )
                     ny == nx || throw( DimensionMismatch("length(y) != length(x) ") )
