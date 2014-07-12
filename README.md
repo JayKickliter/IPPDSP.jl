@@ -254,7 +254,7 @@ filt!( myFilt, buffer, signal )
 #### Single Rate, Out of Place ####
 
 ```julia
-y = filt( myFilt, buffer, signal )
+y = filt( myFilt, signal )
 ```
 
 #### Multirate, In Place ####
