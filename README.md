@@ -19,7 +19,7 @@ This package provides wrapper functions for Intel's [Integrated Performance Prim
 IPP is a commercial product. To use **IPPDSP**, you will need to manually install the IPP libraries.  You can download a 30 day trial for free. They are available for Windows, Linux, and OS X. The location of the libraries will need to be in either your OS library search path, or in Julia's global variable `DS_LOAD_PATH`. If Julia can't find `libIPPS`, add the command `push!(DL_LOAD_PATH, "/path/to/IPPLibs")` in `.juliarc.jl` located in your home folder. Here's the contents of my `.juliarc.jl` (OS X): 
 
 ```jl
-    push!(DL_LOAD_PATH, "/opt/intel/ipp/lib")
+push!(DL_LOAD_PATH, "/opt/intel/ipp/lib")
 ```
 
 ### Note for OS X Users ###
@@ -40,13 +40,13 @@ I wrote a [Julia script](https://gist.github.com/JayKickliter/4c5c70f47be75a20e4
 **IPPDSP** and **IPPCore** are currently unregistered. After installing the IPP libraries, run the following Julia command:
 
 ```jlcon
-julia> Pkg.clone("https://github.com/lindahua/IPPCore.jl")
+julia> Pkg.clone("https://github.com/JayKickliter/IPPCore.jl.git") # I have added some not-yet-merged features to IPPCore
 julia> Pkg.clone("https://github.com/JayKickliter/IPPDSP.jl.git")
 ```
 	
 ## Documentation ##
 
-Notice that most of the functions listed are statically typed. That is because IPP provided plain C functions that are statically typed. There are a few places I've overridden IPP's static typing. These are functions that are typically only used as setup functions, like generating FIR filter coefficients.
+Notice that most of the functions listed take a limited number of argument types. That is because IPP provides plain C functions that are statically typed. There are a few places I've overridden IPP's static typing. These are functions that are typically only used as setup functions, like generating FIR filter coefficients.
 
 IPP has depreciated in-place functions. Some not-in-place functions will work when passed the same pointer for source and destination buffer, but I haven't tested which ones work correctly yet. So all in-place functions you see here, denoted by a bang (`funcname!`), overwrite a vector provided by you. If you are doing the same operation over and over, and the output size will always be the same, using an in-place function with a pre-allocated buffer can substantially increase performance.
 
@@ -91,19 +91,13 @@ y = conv( x1::Vector{T}, x2::Vector{T}[; scale = 0 ])
 xcorr!(  y::Vector{T}, x1::Vector{T}, x2::Vector{T}[, scale = 0 ])
 ```
 
-**Where `T`:**
-
-* IPP32f
-* IPP64f
-* IPP16s
-
 #### Out of Place ####
 
 ```julia
 y = xcorr( x1::Vector{T}, x2::Vector{T}[; scale = 0 ])
 ```
 
-**Where `T`:**
+#### Valid Types `T` ####
 
 * IPP32f
 * IPP64f
@@ -119,22 +113,13 @@ y = xcorr( x1::Vector{T}, x2::Vector{T}[; scale = 0 ])
 autocorr!(  y::Vector{T}, x1::Vector{T}, x2::Vector{T}[, scale = 0 ])
 ```
 
-**Where `T`:**
-
-* IPP16s
-* IPP32f
-* IPP64f
-* IPP16fc
-* IPP32fc
-* IPP64fc
-
 #### Out of Place ####
 
 ```julia
 y = autocorr( x1::Vector{T}, x2::Vector{T}[; scale = 0 ])
 ```
 
-**Where `T`:**
+#### Valid Types `T` ####
 
 * IPP16s
 * IPP32f
@@ -149,26 +134,16 @@ y = autocorr( x1::Vector{T}, x2::Vector{T}[; scale = 0 ])
 #### In Place ####
 
 ```julia
-autocorrnb!(  y::Vector{T}, x1::Vector{T}, x2::Vector{T}[, scale = 0 ])
+autocorrb!(  y::Vector{T}, x1::Vector{T}, x2::Vector{T}[, scale = 0 ])
 ```
-
-**Where `T`:**
-
-* IPP16s
-* IPP32f
-* IPP64f
-* IPP16fc
-* IPP32fc
-* IPP64fc
-
 
 #### Out of Place ####
 
 ```julia
-y = autocorrnb( x1::Vector{T}, x2::Vector{T}[; scale = 0 ])
+y = autocorrb( x1::Vector{T}, x2::Vector{T}[; scale = 0 ])
 ```
 
-**Where `T`:**
+#### Valid Types `T` ####
 
 * IPP16s
 * IPP32f
@@ -186,23 +161,13 @@ y = autocorrnb( x1::Vector{T}, x2::Vector{T}[; scale = 0 ])
 autocorru!(  y::Vector{T}, x1::Vector{T}, x2::Vector{T}[, scale = 0 ])
 ```
 
-**Where `T`:**
-
-* IPP16s
-* IPP32f
-* IPP64f
-* IPP16fc
-* IPP32fc
-* IPP64fc
-
-
 #### Out of Place ####
 
 ```julia
 y = autocorru( x1::Vector{T}, x2::Vector{T}[; scale = 0 ])
 ```
 
-**Where `T`:**
+#### Valid Types `T` ####
 
 * IPP16s
 * IPP32f
