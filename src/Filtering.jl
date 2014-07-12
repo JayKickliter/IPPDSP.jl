@@ -4,13 +4,15 @@
 # Tt    datatype of filter taps (coefficients)
 # Tx    datatype of signal
 
-module WindowType
-    const bartleTt       = 0 
-    const ippWinBlackman = 1
-    const ippWinHamming  = 2
-    const ippWinHann     = 3
-    const ippWinRect     = 4
-end
+const WIN_BARTLETT = 0 
+const WIN_BLACKMAN = 1
+const WIN_HAMMING  = 2
+const WIN_HANN     = 3
+const WIN_RECT     = 4
+const LOWPASS      = 0
+const HIGHPASS     = 1
+const BANDPASS     = 2
+const BANDSTOP     = 3
 
 export  conv,
         xcorr,
@@ -25,15 +27,15 @@ export  conv,
         
 
 # These are common to most of the ipps FIR Filter functions 
-# I haven't included functions that require integer scaling
-# It takes difference parameters. Hope I haven't painted
-# myself into a wall.
+# I haven't included functions that require integer scaling.
+# They take difference parameters. Hope I haven't painted
+# myself into a corner.
 FIRFilterTypes =    [   ( :IPP32f,      :IPP32f,    "_32f"       ),
                         ( :IPP32fc,     :IPP32fc,   "_32fc"      ),
                         ( :IPP64f,      :IPP64f,    "_64f"       ),
                         ( :IPP64fc,     :IPP64fc,   "_64fc"      ),
-                        ( :IPP32f,      :IPP16s,     "32f_16s"    ),
-                        ( :IPP64f,      :IPP16s,     "64f_16s"    ),
+                        ( :IPP32f,      :IPP16s,    "32f_16s"    ),
+                        ( :IPP64f,      :IPP16s,    "64f_16s"    ),
                         ( :IPP64f,      :IPP32f,    "64f_32f"    ),
                         ( :IPP64f,      :Int32,     "64f_32s"    ),
                         ( :IPP64fc,     :IPP16sc,   "64fc_16sc"  ),
@@ -349,7 +351,7 @@ for ( julia_fun, ippf_prefix1, ippf_prefix2 )  in  [ (   :FIRInit,  "ippsFIR",  
             ndelayline     = length( delayLine )
             statePtr       = Array( Ptr{Void}, 1 )         
             @ippscall( $ippfsr, (   Ptr{Void},         Ptr{$Tt},    IPPInt,     Ptr{$Tx},      Ptr{Uint8}   ),
-                                    pointer(statePtr),  taps,        ntaps,      delayLine,     state.buffer )         
+                                    pointer(statePtr), taps,        ntaps,      delayLine,     state.buffer )         
             state.pointer = statePtr[1]
             nothing                                                                                                               
         end
@@ -366,7 +368,7 @@ for ( julia_fun, ippf_prefix1, ippf_prefix2 )  in  [ (   :FIRInit,  "ippsFIR",  
             statePtr       = Array( Ptr{Void}, 1 )         
             0 <= upPhase < upFactor && 0 <= downPhase < downFactor || error()
             @ippscall( $ippfmr, (   Ptr{Void},         Ptr{$Tt}, IPPInt, IPPInt,    IPPInt,  IPPInt,     IPPInt,    Ptr{$Tx},  Ptr{Uint8}   ),
-                                    pointer(statePtr),  taps,     ntaps,  upFactor,  upPhase, downFactor, downPhase, delayLine, state.buffer )
+                                    pointer(statePtr), taps,     ntaps,  upFactor,  upPhase, downFactor, downPhase, delayLine, state.buffer )
             state.pointer = statePtr[1]
             nothing                                                                                                               
         end
@@ -443,6 +445,12 @@ for ( julia_fun, ippf_prefix )  in  [ (   :filt,  "ippsFIR"  ) ], ( Tt, Tx, ippf
 end
 
 
+
+######################################################################################
+# ____ _ ____    ___ ____ ___  ____    ____ ____ _  _ ____ ____ ____ ___ _ ____ _  _ #
+# |___ | |__/     |  |__| |__] [__     | __ |___ |\ | |___ |__/ |__|  |  | |  | |\ | #
+# |    | |  \     |  |  | |    ___]    |__] |___ | \| |___ |  \ |  |  |  | |__| | \| #
+######################################################################################
 #  Names:      ippsFIRGenLowpass_64f, ippsFIRGenHighpass_64f, ippsFIRGenBandpass_64f
 #              ippsFIRGenBandstop_64f
 #
@@ -472,18 +480,59 @@ end
 #   ippStsNoErr          otherwise
 #
 #
-#  IPPAPI(IppStatus, ippsFIRGenLowpass_64f, (Ipp64f rfreq, Ipp64f* taps, int tapsLen,
-#                                              IppWinType winType, IppBool doNormal))
-#  
-#  IPPAPI(IppStatus, ippsFIRGenHighpass_64f, (Ipp64f rfreq, Ipp64f* taps, int tapsLen,
-#                                               IppWinType winType, IppBool doNormal))
-#  
-#  IPPAPI(IppStatus, ippsFIRGenBandpass_64f, (Ipp64f rLowFreq, Ipp64f rHighFreq, Ipp64f* taps,
-#                                       int tapsLen, IppWinType winType, IppBool doNormal))
-#  
-#  IPPAPI(IppStatus, ippsFIRGenBandstop_64f, (Ipp64f rLowFreq, Ipp64f rHighFreq, Ipp64f* taps,
-#                                       int tapsLen, IppWinType winType, IppBool doNormal))
+#  IPPAPI(IppStatus, ippsFIRGenLowpass_64f( Ipp64f rfreq,    Ipp64f* taps,      int tapsLen, IppWinType winType, IppBool doNormal))
+#  IPPAPI(IppStatus, ippsFIRGenHighpass_64f(Ipp64f rfreq,    Ipp64f* taps,      int tapsLen, IppWinType winType, IppBool doNormal))
+#  IPPAPI(IppStatus, ippsFIRGenBandpass_64f(Ipp64f rLowFreq, Ipp64f  rHighFreq, Ipp64f* taps, int tapsLen, IppWinType winType, IppBool doNormal))  
+#  IPPAPI(IppStatus, ippsFIRGenBandstop_64f(Ipp64f rLowFreq, Ipp64f  rHighFreq, Ipp64f* taps, int tapsLen, IppWinType winType, IppBool doNormal))
 
+for ( julia_fun, ippf_prefix )  in  [   ( :FIRTapsHighpass,  "ippsFIRGenHighpass" ), 
+                                        ( :FIRTapsLowpass,   "ippsFIRGenLowpass"  )  ]
+    julia_fun! = symbol(string(julia_fun, '!'))
+    
+    for T in [ IPP64f ]
+                
+        ippf_suffix = IPPSuffix( T )
+        ippf        = string( ippf_prefix, ippf_suffix )                     
+        
+        @eval begin
+            function $(julia_fun!){Tt}( buffer::Vector{Tt}, ω::FloatingPoint, windowType::Int, normalize = true )
+                Ntaps = length ( buffer )
+                0.0 < ω < 0.5   || error( "cutoff frequency must satisfy:  0.0 < ω < 0.5" )
+                Ntaps >= 5      || error( "number of taps must satisfy: Ntaps >= 5")
+                innerBuffer = Tt == $T ? buffer : Array( $T, Ntaps )
+                @ippscall( $ippf,  (  IPP64f, Ptr{$T},      IPPInt, IPPInt,     Bool        ),
+                                      ω,      innerBuffer,  Ntaps,  windowType, normalize   )
+                return Tt == $T ? buffer : [ buffer[i] = innerBuffer[i] for i = 1:Ntaps ]
+            end # function
+            
+            $(julia_fun){Tt}( ::Type{Tt}, Ntaps::Integer, ω::FloatingPoint, windowType::Int, normalize = true ) = $(julia_fun!)( Array(Tt, Ntaps), ω, windowType, normalize )
+        end # eval
+    end # type loop
+end # function loop
 
+for ( julia_fun, ippf_prefix )  in  [   ( :FIRTapsBandpass,  "ippsFIRGenBandpass"  ), 
+                                        ( :FIRTapsBandstop,  "ippsFIRGenBandstop"  )  ]
 
+    julia_fun! = symbol(string(julia_fun, '!'))
+    
+    for T in [ IPP64f ]
+                
+        ippf_suffix = IPPSuffix( T )
+        ippf        = string( ippf_prefix, ippf_suffix )                     
+        
+        @eval begin
+            function $(julia_fun!){Tt}( buffer::Vector{Tt}, ω1::FloatingPoint, ω2::FloatingPoint, windowType::Int, normalize = true )
+                Ntaps = length ( buffer )
+                0.0 < ω1 < ω2 < 0.5 || error( "cutoff frequency must satisfy:  0.0 < ω1 < ω2 < 0.5" )
+                Ntaps >= 5          || error( "number of taps must satisfy: Ntaps >= 5" )
+                innerBuffer = Tt == $T ? buffer : Array( $T, Ntaps )
+                @ippscall( $ippf,  (  IPP64f, IPP64f, Ptr{$T},      IPPInt, IPPInt,     Bool        ),
+                                      ω1,     ω2,     innerBuffer,  Ntaps,  windowType, normalize   )
+                return Tt == $T ? buffer : [ buffer[i] = innerBuffer[i] for i = 1:Ntaps ]
+            end # function
+            
+            $(julia_fun){Tt}( ::Type{Tt}, Ntaps::Integer, ω1::FloatingPoint, ω2::FloatingPoint, windowType::Int, normalize = true ) = $(julia_fun!)( Array(Tt, Ntaps), ω1, ω2, windowType, normalize )
+        end # eval
+    end # type loop
+end # function loop
 
