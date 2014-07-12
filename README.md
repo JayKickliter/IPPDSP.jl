@@ -60,26 +60,17 @@ IPP has depreciated in-place functions. Some not-in-place functions will work wh
 conv!(  y::Vector{T}, x1::Vector{T}, x2::Vector{T}[, scale = 0 ])
 ```
 
-**Where `T`:**
-
-* IPP32f
-* IPP64f
-* IPP16s
-
 #### Out of Place ####
 
 ```julia
 y = conv( x1::Vector{T}, x2::Vector{T}[; scale = 0 ])
 ```
 
-**Where `T`:**
+#### Valid Types `T` ####
 
 * IPP32f
 * IPP64f
 * IPP16s
-
-
-
 
 
 
@@ -201,7 +192,7 @@ These are all the valid combinations of `( tapsType, signalType )`:
 ( IPP64fc,  :IPP32fc )
 ```
 
-Both single-rate and multirate `FIRFilter` objects maintains state, allowing for stream processing. As a matter of fact, intel has depreciated one-off FIR filter functions, requiring you to create a filter state. Although I haven't yet, I will implement a stateless fire-and-forget `filt( taps, signal )` function to quickly filter some data (TODO: don't forget this).
+Both single-rate and multirate `FIRFilter` objects maintain state, allowing for stream processing. As a matter of fact, intel has depreciated one-off FIR filter functions, requiring you to create a filter state. Although I haven't yet, I will implement a stateless fire-and-forget `filt( taps, signal )` function to quickly filter some data (TODO: don't forget this).
 
 Back to stateful filtering, here's a typical scenerio:
 
