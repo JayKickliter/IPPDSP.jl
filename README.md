@@ -48,19 +48,19 @@ julia> Pkg.clone("https://github.com/JayKickliter/IPPDSP.jl.git")
 
 Notice that most of the functions listed take a limited number of argument types. That is because IPP provides plain C functions that are statically typed. There are a few places I've overridden IPP's static typing. These are functions that are typically only used as setup functions, like generating FIR filter coefficients.
 
-IPP has depreciated in-place functions. Some not-in-place functions will work when passed the same pointer for source and destination buffer, but I haven't tested which ones work correctly yet. So all in-place functions you see here, denoted by a bang (`funcname!`), overwrite a vector provided by you. If you are doing the same operation over and over, and the output size will always be the same, using an in-place function with a pre-allocated buffer can substantially increase performance.
+IPP has depreciated in-place functions. Some Not In-Place functions will work when passed the same pointer for source and destination buffer, but I haven't tested which ones work correctly yet. So all in-place functions you see here, denoted by a bang (`funcname!`), overwrite a vector provided by you. If you are doing the same operation over and over, and the output size will always be the same, using an in-place function with a pre-allocated buffer can substantially increase performance.
 
 **Note:** the named argument `scale` only applies when the left (or both) argument is an integer vector. ( TODO: cite Intel's explanation of this )
 
 ### Convolution ###
  
-#### In Place ####
+#### In-Place ####
 
 ```julia
 conv!(  y::Vector{T}, x1::Vector{T}, x2::Vector{T}[, scale = 0 ])
 ```
 
-#### Out of Place ####
+#### Not In-Place ####
 
 ```julia
 y = conv( x1::Vector{T}, x2::Vector{T}[; scale = 0 ])
@@ -76,13 +76,13 @@ y = conv( x1::Vector{T}, x2::Vector{T}[; scale = 0 ])
 
 ### Cross Correlation ###
 
-#### In Place ####
+#### In-Place ####
 
 ```julia
 xcorr!(  y::Vector{T}, x1::Vector{T}, x2::Vector{T}[, scale = 0 ])
 ```
 
-#### Out of Place ####
+#### Not In-Place ####
 
 ```julia
 y = xcorr( x1::Vector{T}, x2::Vector{T}[; scale = 0 ])
@@ -98,13 +98,13 @@ y = xcorr( x1::Vector{T}, x2::Vector{T}[; scale = 0 ])
 
 ### Autocorrelation (Standard) ###
 
-#### In Place ####
+#### In-Place ####
 
 ```julia
 autocorr!(  y::Vector{T}, x1::Vector{T}, x2::Vector{T}[, scale = 0 ])
 ```
 
-#### Out of Place ####
+#### Not In-Place ####
 
 ```julia
 y = autocorr( x1::Vector{T}, x2::Vector{T}[; scale = 0 ])
@@ -122,13 +122,13 @@ y = autocorr( x1::Vector{T}, x2::Vector{T}[; scale = 0 ])
 
 ### Autocorrelation (Normalized) ###
 
-#### In Place ####
+#### In-Place ####
 
 ```julia
 autocorrb!(  y::Vector{T}, x1::Vector{T}, x2::Vector{T}[, scale = 0 ])
 ```
 
-#### Out of Place ####
+#### Not In-Place ####
 
 ```julia
 y = autocorrb( x1::Vector{T}, x2::Vector{T}[; scale = 0 ])
@@ -146,13 +146,13 @@ y = autocorrb( x1::Vector{T}, x2::Vector{T}[; scale = 0 ])
 
 ### Autocorrelation (Un-normalized) ###
 
-#### In Place ####
+#### In-Place ####
 
 ```julia
 autocorru!(  y::Vector{T}, x1::Vector{T}, x2::Vector{T}[, scale = 0 ])
 ```
 
-#### Out of Place ####
+#### Not In-Place ####
 
 ```julia
 y = autocorru( x1::Vector{T}, x2::Vector{T}[; scale = 0 ])
@@ -192,7 +192,7 @@ These are all the valid combinations of `( tapsType, signalType )`:
 ( IPP64fc,  :IPP32fc )
 ```
 
-Both single-rate and multirate `FIRFilter` objects maintain state, allowing for stream processing. As a matter of fact, intel has depreciated one-off FIR filter functions, requiring you to create a filter state. Although I haven't yet, I will implement a stateless fire-and-forget `filt( taps, signal )` function to quickly filter some data (TODO: don't forget this).
+Both single-rate and multirate `FIRFilter` objects maintain state, allowing for stream processing. As a matter of fact, intel has depreciated one-off, or direct-form, FIR filter functions, requiring you to create a filter state. Instead of wrapping the depreciated IPP functions, the direct-form functions listed here create a state for you. The garbage collector takes care of the rest.
 
 Back to stateful filtering, here's a typical scenerio:
 
@@ -233,33 +233,70 @@ myFilter = FIRFilter( ::Type{Tx}, taps::Vector{Tt}, upFactor, downFactor, upPhas
 * `upPhase`: (TODO: understand)
 * `downPhase:` which of the `1:downfactor` samples keep for each output sample (TODO: verify)
 
-### `filt` Function
+### Stateful `filt` Function
 
-#### Single Rate, In Place ####
+#### Single Rate, In-Place ####
 
 ```julia
 buffer = similar( signal )
 filt!( myFilt, buffer, signal )
 ```
 
-#### Single Rate, Out of Place ####
+#### Single Rate, Not In-Place ####
 
 ```julia
 y = filt( myFilt, signal )
 ```
 
-#### Multirate, In Place ####
+#### Multirate, In-Place ####
 
 ```julia
-# TODO: elaborate the constrains of input/output lengths for multirate filters
+# bufLength must be an integer multiple of downFactor
+# bufLength must equal sigLength * upFactor/downFactor
 sigLength = length( signal )
 bufLength = int( sigLength * myFilt.upFactor/myFilt.downFactor )
 buffer    = Array( Tx, bufLength )
 filt!( myFilt, buffer, signal )
 ```
 
-#### Multirate, Out of Place ####
+#### Multirate, Not In-Place ####
 
 ```julia
-y = filt!( myFilt, signal )
+y = filt( myFilt, signal )
+```
+
+### Direct-form `filt` Function
+
+#### Single Rate, In-Place ####
+
+```julia
+buffer = similar( signal )
+taps   = # create your taps
+filt!( buffer, taps, signal )
+```
+
+#### Single Rate, Not In-Place ####
+
+```julia
+taps = # create your taps
+y = filt( taps, signal )
+```
+
+#### Multirate, In-Place ####
+
+```julia
+# bufLength must be an integer multiple of downFactor
+# bufLength must equal sigLength * upFactor/downFactor
+sigLength = length( signal )
+taps      = # create your taps
+bufLength = int( sigLength * upFactor/downFactor )
+buffer    = similar( signal, bufLength )
+filt!( buffer, taps, signal, upFactor, downFactor )
+```
+
+#### Multirate, Not In-Place ####
+
+```julia
+taps = # create your taps
+y    = filt( taps, signal, upFactor, downFactor )
 ```
