@@ -280,7 +280,7 @@ end
 function FIRFilter{ Tx, Tt }( ::Type{Tx}, taps::Array{Tt, 1}, upFactor, downFactor, upPhase = 0, downPhase = 0 )
     tapsLen   = length( taps )
     pointer   = convert( Ptr{Uint8}, 0 )
-    bufLen    = FIRRequiredStateSize( Tt, Tx, tapsLen )
+    bufLen    = FIRRequiredStateSize( Tt, Tx, tapsLen, upFactor, downFactor )
     delayLine = zeros( Tx, tapsLen )
     buffer    = zeros( Uint8, bufLen )
     state     = FIRMRState( pointer, buffer )
@@ -327,7 +327,7 @@ FIRFilter{ Tx, Tt }( ::Type{Tx}, taps::Array{Tt, 1}, resampleRatio::Rational, up
 for ( julia_fun, ippf_prefix1, ippf_prefix2 )  in  [ (   :FIRRequiredStateSize,  "ippsFIR",  "GetStateSize"  ) ]
     for ( Tt, Tx ) in FIRFilterTypes
 
-        ippf_suffix = IPPSuffix( (Tt, Tx) )
+        ippf_suffix = Tt == Tx ? IPPSuffix( Tt ) : IPPSuffix( (Tt, Tx) )
 
         # Single rate version
         ippfsr = string( ippf_prefix1, ippf_prefix2, ippf_suffix )
@@ -361,7 +361,7 @@ end
 for ( julia_fun, ippf_prefix1, ippf_prefix2 )  in  [ (   :FIRInit,  "ippsFIR",  "Init"  ) ]
     for ( Tt, Tx ) in FIRFilterTypes
 
-        ippf_suffix = IPPSuffix( ( Tt, Tx ))
+        ippf_suffix = Tt == Tx ? IPPSuffix( Tt ) : IPPSuffix( (Tt, Tx) )
         julia_fun! = symbol(string(julia_fun, '!'))
 
         # Single rate version
@@ -430,41 +430,75 @@ end
 for ( julia_fun, ippf_prefix )  in  [ (   :filt,  "ippsFIR"  ) ]
     for ( Tt, Tx ) in FIRFilterTypes
 
-        ippf_suffix = IPPSuffix(( Tt, Tx ))
+        ippf_suffix = Tt == Tx ? IPPSuffix( Tt ) : IPPSuffix( (Tt, Tx) )
         julia_fun!  = symbol(string(julia_fun, '!'))
 
         # single rate
         ippfsr = string( ippf_prefix, ippf_suffix )
         @eval begin
+
+            # TODO: make a lower level version of filt so direct form filters dont need to create a fir filter object
+            #       they should only need to call getsize and init
+            # using a pre-instanciated FIRFilter object, and a preallocated buffer
             function $(julia_fun!)( self::FIRFilter{$Tt, $Tx, FIRSRState}, buffer::Vector{ $Tx }, signal::Vector{ $Tx } )
                 sigLen = length( signal )
-                outLen = length( buffer )
+                bufLen = length( buffer )
+                bufLen >= sigLen || error( "output buffer is too small" )
                 @ippscall( $ippfsr,  (  Ptr{$Tx},       Ptr{$Tx},       IPPInt,    Ptr{Void}                    ),
                                         signal,         buffer,         sigLen,    self.state.pointer           )
                 buffer
             end
+
+            # using a pre-instanciated FIRFilter object
             $(julia_fun)( self::FIRFilter{$Tt, $Tx, FIRSRState}, signal::Vector{$Tx} ) = $(julia_fun!)( self, similar( signal ), signal )
+
+            # direct form, with taps and signal, and a preallocated buffer
+            function $(julia_fun!)( buffer::Vector{ $Tx }, taps::Vector{ $Tt }, signal::Vector{ $Tx })
+                self = FIRFilter( $Tx, taps )
+                filt!( self, buffer, signal )
+            end
+
+            # direct form, with taps and signal
+            $(julia_fun)( taps::Vector{ $Tt }, signal::Vector{ $Tx } ) = $(julia_fun!)( similar(signal), taps, signal )
+
         end
 
         # multirate
         ippfmr = string( ippf_prefix, "MR", ippf_suffix )
         @eval begin
-            function $(julia_fun!)( self::FIRFilter{ $Tt, $Tx, FIRMRState }, buffer::Array{$Tx, 1}, signal::Array{$Tx, 1} )
+
+            # using a pre-instanciated FIRFilter object, and a preallocated buffer
+            function $(julia_fun!)( self::FIRFilter{ $Tt, $Tx, FIRMRState }, buffer::Vector{ $Tx }, signal::Array{$Tx} )
                 sigLen = length( signal )
                 outLen = length( buffer )
-                sigLen * self.upFactor == outLen * self.downFactor || error()
+                sigLen % self.downFactor == 0 || error( "signal length must be an integer multiple of decimation")
+                sigLen * self.upFactor == outLen * self.downFactor || error( "buffer length needs to be >= sigal len * interpolation/decimation" )
                 iterations  = int( sigLen/self.downFactor )
                 @ippscall( $ippfsr,  (  Ptr{$Tx},  Ptr{$Tx},  IPPInt,     Ptr{Void}            ),
                                         signal,    buffer,    iterations, self.state.pointer   )
                 buffer
             end
 
+            # using a pre-instanciated FIRFilter object
             function $(julia_fun)( self::FIRFilter{$Tt, $Tx, FIRMRState}, signal::Vector{ $Tx } )
                 sigLen = length( signal )
-                sigLen % self.downFactor == 0 || error()
                 bufLen = int( sigLen * self.upFactor / self.downFactor )
                 buffer = similar( signal, bufLen )
                 $(julia_fun!)( self, buffer, signal )
+            end
+
+            # direct form, with taps and signal, and a preallocated buffer
+            function $(julia_fun!)( buffer::Vector{ $Tx }, taps::Vector{ $Tt }, signal::Vector{ $Tx }, upFactor::Integer, downFactor::Integer, upPhase = 0, downPhase = 0)
+                self = FIRFilter( $Tx, taps, upFactor, downFactor, upPhase, downPhase )
+                $(julia_fun!)( self, buffer, signal )
+            end
+
+            # direct form, with taps and signal
+            function $(julia_fun)( taps::Vector{ $Tt }, signal::Vector{ $Tx }, upFactor::Integer, downFactor::Integer, upPhase = 0, downPhase = 0)
+                sigLen = length( signal )
+                bufLen = int( sigLen * upFactor / downFactor )
+                buffer = similar( signal, bufLen )
+                $(julia_fun!)( buffer, taps, signal, upFactor, downFactor, upPhase, downPhase )
             end
         end
     end
