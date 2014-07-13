@@ -24,26 +24,13 @@ export  conv,
         FIRInit
         
 
-        
 
-# These are common to most of the ipps FIR Filter functions 
-# I haven't included functions that require integer scaling.
-# They take difference parameters. Hope I haven't painted
-# myself into a corner.
-FIRFilterTypes =    [   ( :IPP32f,      :IPP32f,    "_32f"       ),
-                        ( :IPP32fc,     :IPP32fc,   "_32fc"      ),
-                        ( :IPP64f,      :IPP64f,    "_64f"       ),
-                        ( :IPP64fc,     :IPP64fc,   "_64fc"      ),
-                        ( :IPP32f,      :IPP16s,    "32f_16s"    ),
-                        ( :IPP64f,      :IPP16s,    "64f_16s"    ),
-                        ( :IPP64f,      :IPP32f,    "64f_32f"    ),
-                        ( :IPP64f,      :Int32,     "64f_32s"    ),
-                        ( :IPP64fc,     :IPP16sc,   "64fc_16sc"  ),
-                        ( :IPP64fc,     :IPP32sc,   "64fc_32sc"  ),
-                        ( :IPP64fc,     :IPP32fc,   "64fc_32fc"  )   ]
-
-
-
+                                                                   
+################################################################################
+#               ____ ____ _  _ _  _ ____ _    _  _ ___ _ ____ _  _             #
+#               |    |  | |\ | |  | |  | |    |  |  |  | |  | |\ |             #
+#               |___ |__| | \|  \/  |__| |___ |__|  |  | |__| | \|             #
+################################################################################
 
 for ( julia_fun, ippf_prefix, types ) in    [   (   :conv,      "ippsConv", [   ( :IPP32f, "32f"     ),
                                                                                 ( :IPP64f, "64f"     ),
@@ -207,6 +194,21 @@ end
 #      |___ | |__/    |___ | |     |  |___ |__/     |   \_/  |__] |___         #
 #      |    | |  \    |    | |___  |  |___ |  \     |    |   |    |___         #
 ################################################################################  
+# These are common to most of the ipps FIR Filter functions 
+# I haven't included functions that require integer scaling.
+# They take difference parameters. Hope I haven't painted
+# myself into a corner.
+FIRFilterTypes =    [   ( :IPP32f,      :IPP32f,    "_32f"       ),
+                        ( :IPP32fc,     :IPP32fc,   "_32fc"      ),
+                        ( :IPP64f,      :IPP64f,    "_64f"       ),
+                        ( :IPP64fc,     :IPP64fc,   "_64fc"      ),
+                        ( :IPP32f,      :IPP16s,    "32f_16s"    ),
+                        ( :IPP64f,      :IPP16s,    "64f_16s"    ),
+                        ( :IPP64f,      :IPP32f,    "64f_32f"    ),
+                        ( :IPP64f,      :Int32,     "64f_32s"    ),
+                        ( :IPP64fc,     :IPP16sc,   "64fc_16sc"  ),
+                        ( :IPP64fc,     :IPP32sc,   "64fc_32sc"  ),
+                        ( :IPP64fc,     :IPP32fc,   "64fc_32fc"  )   ]
 
 # IPP assings a pointer to state
 # This points to an invisuble-to-us struct in buffer
