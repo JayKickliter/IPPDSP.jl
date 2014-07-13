@@ -1,8 +1,22 @@
 # IPPDSP#
 
-This package provides wrapper functions for Intel's [Integrated Performance Primitives](https://software.intel.com/en-us/intel-ipp). Specifically, **IPPDSP** targets libIPPS's [DSP](http://en.wikipedia.org/wiki/Digital_signal_processing) functions and data structures.
+This package provides wrapper functions for Intel's [Integrated Performance Primitives](https://software.intel.com/en-us/intel-ipp). Specifically, **IPPDSP.jl** targets libIPPS's [DSP](http://en.wikipedia.org/wiki/Digital_signal_processing) functions and data structures.
 
-**IPPDSP** originally started as additions to Dahua Lin's **IPPMath**, as they both wrap `libIPPS`. Even though they use the same library, we decided that DSP specific functionality belonged in its own package. Special thanks to Dahua for laying a foundation for me. Until I read his code I was clueless when it came to using Julia's metaprogramming facilities.
+**IPPDSP.jl** originally started as additions to Dahua Lin's **IPPMath.jl**, as they both wrap `libIPPS`. Even though they use the same library, we decided that DSP specific functionality belonged in its own package. Special thanks to Dahua for laying a foundation for me. Until I read his code I was clueless when it came to using Julia's metaprogramming facilities.
+
+## Why should I use this? ##
+
+[**DSP.jl**](https://github.com/JuliaDSP/DSP.jl) is more portable. I'd recommend using it unless you have reason not to. However, there a few reasons why you might want to use **IPPDSP.jl**:
+
+* **IPPDSP.jl** has a feature you need, but **DSP.jl** is missing.
+    * You can always submit a feature request.
+* You are working on a project that can't use GPL code.
+    * **DSP.jl** depends on FFTW, which is licensed under the GPL.
+    * IPP filtering internally use Intel's FFT
+    * Your Julia environment may still have GPL dependencies. This may be change in the future.
+* You need the speed that IPP provides
+
+In reality, **IPPDSP.jl** is very young, and missing many of **DSP.jl**'s functionality. If you need the speed of IPP's filtering, you will probably need to use both.
 
 
 ## Installation Notes ##
