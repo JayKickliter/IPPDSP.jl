@@ -202,7 +202,7 @@ Back to stateful filtering, here's a typical scenerio:
 4. Do something with `mySamples`
 5. `GOTO 2`
 
-### Single-Rate Constructor ###
+### Single Rate Constructor ###
 
 Internally, IPP use polyphase deconstruction to efficiently filter with interpolation and decimation.
 
