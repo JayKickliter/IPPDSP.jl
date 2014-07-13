@@ -25,6 +25,7 @@ export  conv,
         
 
 
+
                                                                    
 ################################################################################
 #               ____ ____ _  _ _  _ ____ _    _  _ ___ _ ____ _  _             #
@@ -32,16 +33,20 @@ export  conv,
 #               |___ |__| | \|  \/  |__| |___ |__|  |  | |__| | \|             #
 ################################################################################
 
-for ( julia_fun, ippf_prefix, types ) in    [   (   :conv,      "ippsConv", [   ( :IPP32f, "32f"     ),
-                                                                                ( :IPP64f, "64f"     ),
-                                                                                ( :IPP16s, "16s_Sfs" ) ] ) ]
-    julia_fun! = symbol(string(julia_fun, '!'))
+conv_types = [ :IPP32f,
+               :IPP64f,
+               :IPP16s ]
+               
+for ( julia_fun, ippf_prefix ) in [ ( :conv, "ippsConv" ) ]
+    
+    julia_fun! = symbol(string(julia_fun, '!'))    
 
-    for ( T, ipp_suffix ) in types
-
-        ippf  = string( ippf_prefix, '_', ipp_suffix )
+    for T in conv_types
         
-        if eval(T)<:Integer # integer versions require a scaling factor
+        ippf = string( ippf_prefix, IPPSuffix( T ) )
+        
+        if eval(T) == IPP16s # integer versions require a scaling factor
+            ippf *= "_Sfs"
             @eval begin
                 function $(julia_fun!)( y::Array{$T}, x1::Array{$T}, x2::Array{$T}; scale = 0  )
                     ny  = length( y )
@@ -87,19 +92,22 @@ end
 #               |___ |__| |  \ |  \ |___ |___ |  |  |  | |__| | \|             #
 ################################################################################                                           
 
-for ( julia_fun, ippf_prefix, types ) in    [   (   :xcorr,      "ippsCrossCorr", [     ( :IPP32f,  "32f"       ),
-                                                                                        ( :IPP64f,  "64f"       ),
-                                                                                        ( :IPP32fc, "32fc"      ),
-                                                                                        ( :IPP64fc, "64fc"      ),
-                                                                                        ( :IPP16s,  "16s_Sfs"   ) ] ) ]
+xcorr_types = [ :IPP32f,
+                :IPP64f,
+                :IPP32fc,
+                :IPP64fc,
+                :IPP16s  ]
+
+for ( julia_fun, ippf_prefix ) in [ ( :xcorr, "ippsCrossCorr" ) ]
 
     julia_fun! = symbol(string(julia_fun, '!'))
 
-    for ( T, ipp_suffix ) in types
-
-        ippf  = string( ippf_prefix, '_', ipp_suffix )
+    for T in xcorr_types
         
-        if eval(T)==IPP16s # scaled version
+        ippf = string( ippf_prefix, IPPSuffix( T ) )        
+        
+        if eval(T) == IPP16s # scaled version
+            ippf *= "_Sfs"
             @eval begin
                 function $(julia_fun!)( y::Array{$T}, x1::Array{$T}, x2::Array{$T}; scale::Integer = 0, lowlag::Integer = 0)
                     ny  = length( y )
@@ -136,22 +144,29 @@ for ( julia_fun, ippf_prefix, types ) in    [   (   :xcorr,      "ippsCrossCorr"
     end
 end
 
+
+
+
+autocorr_types = [ :IPP16s,   
+                   :IPP32f, 
+                   :IPP64f, 
+                   :IPP16fc, 
+                   :IPP32fc, 
+                   :IPP64fc  ] 
+
+
 for ( julia_fun, ippf_prefix )  in  [   ( :autocorr,  "ippsAutoCorr"       ),      
                                         ( :autocorrb, "ippsAutoCorr_NormA" ),    
                                         ( :autocorru, "ippsAutoCorr_NormB" )   ]
                                             
     julia_fun! = symbol(string(julia_fun, '!'))
 
-    for ( T, ippf_suffix ) in [ ( :IPP16s,  "16s_Sfs" ),
-                                ( :IPP32f,  "32f"     ), 
-                                ( :IPP64f,  "64f"     ),
-                                ( :IPP16fc, "16fc"    ),
-                                ( :IPP32fc, "32fc"    ),
-                                ( :IPP64fc, "64fc"    ) ]
-
-        ippf  = string( ippf_prefix, '_', ippf_suffix )
+    for T = autocorr_types
+        
+        ippf = string( ippf_prefix, '_', IPPSuffix( T ) )
         
         if eval(T) == IPP16s
+            ippf *= "_Sfs"
             @eval begin
                 function $(julia_fun!)( y::Array{$T}, x::Array{$T}; scale = 0 )
                     ny = length( y )
@@ -166,7 +181,7 @@ for ( julia_fun, ippf_prefix )  in  [   ( :autocorr,  "ippsAutoCorr"       ),
                 end
             
                 $(julia_fun)(  x::Array{$T}; args... ) = $(julia_fun!)( similar(x, length(x)*2-1), x; args... )
-
+        
             end
         else
             @eval begin
@@ -183,7 +198,7 @@ for ( julia_fun, ippf_prefix )  in  [   ( :autocorr,  "ippsAutoCorr"       ),
                 end
                 
                 $(julia_fun)(  x::Array{$T} ) = $(julia_fun!)( similar(x), x )
-
+        
             end            
         end
     end
