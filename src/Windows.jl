@@ -8,21 +8,21 @@ for ( julia_fun, ippf_prefix ) in   [   (   :bartlett,      "ippsWinBartlett"   
 
     julia_fun! = symbol(string(julia_fun, '!'))
 
-    for ( T, ippf_suffix ) in [ (   :Float16,               "16f"   ),
-                                (   :Float32,               "32f"   ), 
-                                (   :Float64,               "64f"   ),
-                                (   :(Complex{Float16}),    "16fc"  ),
-                                (   :(Complex{Float32}),    "32fc"  ),
-                                (   :(Complex{Float64}),    "64fc"  ) ]
+    for ( T ) in [  :IPP16f,
+                    :IPP32f, 
+                    :IPP64f,
+                    :IPP16fc,
+                    :IPP32fc,
+                    :IPP64fc  ]
 
-        ippf  = string( ippf_prefix, '_', ippf_suffix )
+        ippf  = string( ippf_prefix, IPPSuffix( T ) )
 
         @eval begin
             function $(julia_fun!)( y::Array{$T}, x::Array{$T}  )
                 n = length( y )
                 length(x) == n || throw( DimensionMismatch( "Inconsistent array lengths." ))
                 if n > 0
-                    @ippscall( $ippf, ( Ptr{$T},    Ptr{$T},    IppInt  ), 
+                    @ippscall( $ippf, ( Ptr{$T},    Ptr{$T},    IPPInt  ), 
                                         x,          y,          n       )
                 end
                 
@@ -40,7 +40,7 @@ for ( julia_fun, ippf_prefix ) in   [   (   :bartlett,      "ippsWinBartlett"   
             end
             
             $(julia_fun)( T::Type, n::Integer ) = $(julia_fun!)( Array( T, n ), n )
-            $(julia_fun)( n::Integer ) = $(julia_fun!)( Array( Float64, n ), n )
+            $(julia_fun)( n::Integer ) = $(julia_fun!)( Array( IPP64f, n ), n )
         end
     end
 end
@@ -52,21 +52,21 @@ for ( julia_fun, ippf_prefix ) in   [   (   :blackman,      "ippsWinBlackman"   
 
     julia_fun! = symbol(string(julia_fun, '!'))
 
-    for ( T, ippf_suffix ) in [ (   :Float16,               "16f"   ),
-                                (   :Float32,               "32f"   ), 
-                                (   :Float64,               "64f"   ),
-                                (   :(Complex{Float16}),    "16fc"  ),
-                                (   :(Complex{Float32}),    "32fc"  ),
-                                (   :(Complex{Float64}),    "64fc"  ) ]
+    for ( T ) in [  :IPP16f, 
+                    :IPP32f,  
+                    :IPP64f, 
+                    :IPP16fc, 
+                    :IPP32fc, 
+                    :IPP64fc  ]
 
-        ippf  = string( ippf_prefix, '_', ippf_suffix )
+        ippf  = string( ippf_prefix, IPPSuffix( T ) )
 
         @eval begin
             function $(julia_fun!)( y::Array{$T}, x::Array{$T}, α::FloatingPoint  )
                 n = length( y )
                 length(x) == n || throw( DimensionMismatch( "Inconsistent array lengths." ))
                 if n > 0
-                    @ippscall( $ippf, ( Ptr{$T},    Ptr{$T},    IppInt, Float64  ), 
+                    @ippscall( $ippf, ( Ptr{$T},    Ptr{$T},    IPPInt, IPP64f  ), 
                                         x,          y,          n,      α       )
                 end
                 
@@ -84,7 +84,7 @@ for ( julia_fun, ippf_prefix ) in   [   (   :blackman,      "ippsWinBlackman"   
             end
             
             $(julia_fun)( T::Type, n::Integer, α::FloatingPoint ) = $(julia_fun!)( Array( T, n ), n, α )
-            $(julia_fun)( n::Integer, α::FloatingPoint )          = $(julia_fun!)( Array( Float64, n ), n, α )
+            $(julia_fun)( n::Integer, α::FloatingPoint )          = $(julia_fun!)( Array( IPP64f, n ), n, α )
         end
     end
 end
