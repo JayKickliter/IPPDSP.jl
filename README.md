@@ -206,7 +206,7 @@ These are all the valid combinations of `( tapsType, signalType )`:
 ( IPP64fc,  :IPP32fc )
 ```
 
-Both single-rate and multirate `FIRFilter` objects maintain state, allowing for stream processing. As a matter of fact, intel has depreciated one-off, or direct-form, FIR filter functions, requiring you to create a filter state. Instead of wrapping the depreciated IPP functions, the direct-form functions listed here create a state for you. The garbage collector takes care of the rest.
+Both single-rate and multirate `FIRFilter` objects maintain state, allowing for stream processing. Intel has depreciated one-off, or direct-form, FIR filter functions, requiring you to create a filter state. Instead of wrapping the depreciated IPP functions, the direct-form functions listed here create a state for you. The garbage collector takes care of the rest.
 
 Back to stateful filtering, here's a typical scenerio:
 
